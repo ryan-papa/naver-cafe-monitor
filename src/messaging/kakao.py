@@ -1,157 +1,114 @@
 """카카오 메시지 전송 모듈.
 
-PyKakao 라이브러리를 사용하여 본인 및 친구에게 메시지를 전송한다.
-recipients 설정으로 본인("self") + 친구("friend") 복수 대상 전송을 지원한다.
+카카오 REST API를 직접 호출하여 메시지를 전송한다.
+이미지는 카카오 CDN에 업로드 후 list 타입으로 묶어서 전송.
 """
 from __future__ import annotations
 
-import base64
+import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PyKakao.api import Message
+import requests
 
 if TYPE_CHECKING:
-    from src.config import Config, RecipientConfig
+    from src.config import Config
 
 logger = logging.getLogger(__name__)
 
-# 카카오 이미지 첨부 최대 개수
-_MAX_IMAGE_ATTACHMENTS = 5
+_MEMO_URL = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
+_IMAGE_UPLOAD_URL = "https://kapi.kakao.com/v2/api/talk/message/image/upload"
+_MAX_LIST_ITEMS = 3  # list 타입 최대 항목 수
 
 
 class KakaoMessenger:
     """카카오 메시지 전송 클래스."""
 
-    def __init__(
-        self,
-        access_token: str,
-        recipients: list[RecipientConfig] | None = None,
-    ) -> None:
-        self._client = Message(service_key=None)
-        self._client.set_access_token(access_token)
-        self._recipients = recipients or []
+    def __init__(self, access_token: str) -> None:
+        self._token = access_token
+        self._headers = {"Authorization": f"Bearer {access_token}"}
 
     @classmethod
-    def from_config(cls, config: Config) -> KakaoMessenger:
-        """Config 인스턴스에서 KakaoMessenger를 생성한다."""
-        return cls(
-            access_token=config.kakao_token,
-            recipients=config.notification.kakao.recipients,
-        )
+    def from_config(cls, config: "Config") -> "KakaoMessenger":
+        return cls(access_token=config.kakao_token)
 
-    # ── 내부 전송 헬퍼 ───────────────────────────────────────────────────────
+    def _send_template(self, template: dict) -> None:
+        data = {"template_object": json.dumps(template, ensure_ascii=False)}
+        r = requests.post(_MEMO_URL, headers=self._headers, data=data)
+        if r.status_code != 200:
+            logger.error("카카오 전송 실패: %s %s", r.status_code, r.text)
+            raise RuntimeError(f"카카오 전송 실패: {r.status_code} {r.text}")
 
-    def _send_to_me(self, message_type: str, **kwargs: object) -> None:
-        """나에게 보내기 API 호출."""
-        self._client.send_message_to_me(message_type=message_type, **kwargs)
-
-    def _send_to_friend(
-        self, friend_uuid: str, message_type: str, **kwargs: object
-    ) -> None:
-        """친구에게 보내기 API 호출."""
-        self._client.send_message_to_friend(
-            receiver_uuids=[friend_uuid],
-            message_type=message_type,
-            **kwargs,
-        )
-
-    def _send_to_all(self, message_type: str, **kwargs: object) -> None:
-        """설정된 모든 수신자에게 메시지를 전송한다.
-
-        recipients가 비어 있으면 본인에게만 전송한다(하위 호환).
-        """
-        targets = self._recipients or []
-        if not targets:
-            self._send_to_me(message_type=message_type, **kwargs)
-            return
-
-        for recipient in targets:
-            if recipient.type == "friend" and recipient.friend_uuid:
-                self._send_to_friend(
-                    recipient.friend_uuid, message_type=message_type, **kwargs
-                )
-                logger.info("친구에게 메시지 전송 완료: %s", recipient.friend_uuid[:8])
-            else:
-                self._send_to_me(message_type=message_type, **kwargs)
-
-    # ── 공개 API ─────────────────────────────────────────────────────────────
+    def _upload_image(self, image_path: Path) -> str:
+        """이미지를 카카오 CDN에 업로드하고 URL을 반환한다."""
+        with open(image_path, "rb") as f:
+            r = requests.post(
+                _IMAGE_UPLOAD_URL,
+                headers=self._headers,
+                files={"file": (image_path.name, f, "image/jpeg")},
+            )
+        if r.status_code != 200:
+            raise RuntimeError(f"이미지 업로드 실패: {r.status_code} {r.text}")
+        return r.json()["infos"]["original"]["url"]
 
     def send_text(self, message: str) -> None:
         """텍스트 메시지를 전송한다."""
-        try:
-            self._send_to_all(message_type="text", text=message)
-            logger.info("카카오 텍스트 메시지 전송 완료")
-        except Exception as exc:
-            logger.error("카카오 텍스트 메시지 전송 실패: %s", exc)
-            raise RuntimeError(f"카카오 텍스트 메시지 전송 실패: {exc}") from exc
-
-    @staticmethod
-    def _encode_image_base64(image_path: Path) -> str:
-        """이미지 파일을 base64 문자열로 인코딩한다."""
-        data = image_path.read_bytes()
-        return base64.b64encode(data).decode("utf-8")
-
-    def send_images(
-        self,
-        image_paths: list[Path],
-        caption: str = "",
-    ) -> None:
-        """이미지를 전송한다.
-
-        최대 첨부 수를 초과하면 배치로 나누어 전송한다.
-        """
-        if not image_paths:
-            logger.warning("전송할 이미지가 없습니다.")
-            return
-
-        batches = [
-            image_paths[i : i + _MAX_IMAGE_ATTACHMENTS]
-            for i in range(0, len(image_paths), _MAX_IMAGE_ATTACHMENTS)
-        ]
-
-        for batch_index, batch in enumerate(batches, start=1):
-            batch_caption = caption or ""
-            if len(batches) > 1:
-                batch_caption = f"[{batch_index}/{len(batches)}] {batch_caption}".strip()
-
-            image_data_list: list[str] = []
-            for img_path in batch:
-                try:
-                    encoded = self._encode_image_base64(img_path)
-                    image_data_list.append(
-                        f"[image:{img_path.name}]\n"
-                        f"data:image/{img_path.suffix.lstrip('.')};base64,{encoded}"
-                    )
-                except FileNotFoundError:
-                    logger.warning("이미지 파일을 찾을 수 없습니다: %s", img_path)
-                    image_data_list.append(f"[image:{img_path.name}] (파일 없음)")
-
-            images_text = "\n".join(image_data_list)
-            text_body = (
-                f"{batch_caption}\n{images_text}".strip()
-                if batch_caption
-                else images_text
-            )
-
-            try:
-                self._send_to_all(message_type="text", text=text_body)
-                logger.info(
-                    "카카오 이미지 배치 %d/%d 전송 완료 (%d장)",
-                    batch_index, len(batches), len(batch),
-                )
-            except Exception as exc:
-                logger.error(
-                    "카카오 이미지 배치 %d/%d 전송 실패: %s",
-                    batch_index, len(batches), exc,
-                )
-                raise RuntimeError(
-                    f"카카오 이미지 전송 실패 (배치 {batch_index}/{len(batches)}): {exc}"
-                ) from exc
+        self._send_template({
+            "object_type": "text",
+            "text": message[:2000],
+            "link": {"web_url": "https://cafe.naver.com/sewhakinder"},
+        })
 
     def send_notice_summary(self, title: str, summary: str) -> None:
-        """공지 요약을 포맷하여 전송한다."""
-        message = f"[네이버 카페 공지]\n\n{title}\n\n{summary}"
-        self.send_text(message)
-        logger.info("카카오 공지 요약 전송 완료: %s", title)
+        """공지 요약을 전송한다."""
+        self.send_text(f"[세화유치원 공지]\n\n📋 {title}\n\n{summary}")
+
+    def send_matched_images(
+        self, title: str, image_paths: list[Path], post_url: str
+    ) -> None:
+        """매칭된 이미지를 업로드 후 list 타입으로 묶어서 전송한다."""
+        # 이미지 업로드
+        uploaded = []
+        for path in image_paths:
+            try:
+                url = self._upload_image(path)
+                uploaded.append(url)
+                logger.info("이미지 업로드: %s", path.name)
+            except Exception as e:
+                logger.warning("업로드 실패 스킵: %s — %s", path.name, e)
+
+        if not uploaded:
+            logger.warning("업로드된 이미지 없음")
+            return
+
+        # 텍스트 알림
+        self.send_text(
+            f"[세화유치원 사진]\n\n📷 {title}\n자녀 사진 {len(uploaded)}장 발견"
+        )
+
+        # list 타입으로 묶어서 전송 (최대 3장씩)
+        for batch_start in range(0, len(uploaded), _MAX_LIST_ITEMS):
+            batch = uploaded[batch_start : batch_start + _MAX_LIST_ITEMS]
+            batch_num = batch_start // _MAX_LIST_ITEMS + 1
+            total = (len(uploaded) + _MAX_LIST_ITEMS - 1) // _MAX_LIST_ITEMS
+
+            header = f"📷 {title}"
+            if total > 1:
+                header += f" ({batch_num}/{total})"
+
+            self._send_template({
+                "object_type": "list",
+                "header_title": header,
+                "header_link": {"web_url": post_url, "mobile_web_url": post_url},
+                "contents": [
+                    {
+                        "title": f"사진 {batch_start + i + 1}/{len(uploaded)}",
+                        "description": "",
+                        "image_url": url,
+                        "link": {"web_url": post_url, "mobile_web_url": post_url},
+                    }
+                    for i, url in enumerate(batch)
+                ],
+            })
+            logger.info("이미지 배치 %d/%d 전송 (%d장)", batch_num, total, len(batch))

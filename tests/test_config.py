@@ -128,7 +128,7 @@ class TestMissingEnvVars:
             _load_env_vars(env_file)
 
     def test_error_message_lists_missing_keys(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        for key in ("NAVER_ID", "NAVER_PW", "KAKAO_TOKEN", "ANTHROPIC_API_KEY"):
+        for key in ("NAVER_ID", "NAVER_PW", "KAKAO_TOKEN"):
             monkeypatch.delenv(key, raising=False)
         monkeypatch.setenv("NAVER_ID", "set")
         monkeypatch.setenv("NAVER_PW", "set")
@@ -140,20 +140,18 @@ class TestMissingEnvVars:
 
         msg = str(exc_info.value)
         assert "KAKAO_TOKEN" in msg
-        assert "ANTHROPIC_API_KEY" in msg
         assert "NAVER_ID" not in msg  # 이미 설정된 키는 포함되지 않아야 함
 
     def test_raises_on_single_missing_env_var(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        for key in ("NAVER_ID", "NAVER_PW", "KAKAO_TOKEN", "ANTHROPIC_API_KEY"):
+        for key in ("NAVER_ID", "NAVER_PW", "KAKAO_TOKEN"):
             monkeypatch.delenv(key, raising=False)
         monkeypatch.setenv("NAVER_ID", "id")
         monkeypatch.setenv("NAVER_PW", "pw")
-        monkeypatch.setenv("KAKAO_TOKEN", "tok")
-        # ANTHROPIC_API_KEY 누락
+        # KAKAO_TOKEN 누락
         env_file = tmp_path / ".env"
         env_file.write_text("", encoding="utf-8")
 
-        with pytest.raises(EnvironmentError, match="ANTHROPIC_API_KEY"):
+        with pytest.raises(EnvironmentError, match="KAKAO_TOKEN"):
             _load_env_vars(env_file)
 
 

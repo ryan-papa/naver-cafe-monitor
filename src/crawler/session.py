@@ -1,6 +1,7 @@
 """네이버 로그인 세션 관리 모듈.
 
 쿠키 저장 / 복원 및 Playwright 브라우저 컨텍스트 생성을 담당한다.
+최초 로그인은 수동(headless=False)으로 진행 → 쿠키 저장 → 이후 쿠키 복원.
 """
 from __future__ import annotations
 
@@ -53,23 +54,38 @@ async def restore_cookies(context: "BrowserContext", path: Path = _DEFAULT_COOKI
     return True
 
 
-async def login(page: "Page", naver_id: str, naver_pw: str) -> None:
-    """네이버 ID/PW로 로그인한다. OTP 없는 기본 로그인을 가정한다."""
-    logger.info("네이버 로그인 시도: %s", naver_id)
+async def manual_login(playwright: "Playwright", cookie_path: Path = _DEFAULT_COOKIE_PATH) -> None:
+    """브라우저를 열어 수동 로그인 후 쿠키를 저장한다.
+
+    headless=False로 브라우저를 띄워 사용자가 직접 로그인(2차 인증 포함).
+    로그인 완료 후 쿠키를 저장하고 브라우저를 닫는다.
+    """
+    context = await build_context(playwright, headless=False)
+    page = await context.new_page()
+
     await page.goto(_NAVER_LOGIN_URL, wait_until="domcontentloaded")
+    logger.info("브라우저가 열렸습니다. 네이버 로그인을 완료해주세요.")
+    print("\n" + "=" * 50)
+    print("브라우저에서 네이버 로그인을 완료해주세요.")
+    print("(2차 인증 포함)")
+    print("로그인 완료 후 여기로 돌아와 Enter를 누르세요.")
+    print("=" * 50)
 
-    # human-like 입력으로 봇 탐지 회피 (JS 직접 주입 대신 page.type 사용)
-    await page.click("#id")
-    await page.type("#id", naver_id, delay=50)
-    await page.click("#pw")
-    await page.type("#pw", naver_pw, delay=50)
-    await page.click("input[type=submit]")
-    await page.wait_for_load_state("domcontentloaded")
-    logger.info("네이버 로그인 완료")
+    # 네이버 메인으로 이동할 때까지 대기 (로그인 성공 시 리다이렉트)
+    try:
+        await page.wait_for_url("**/www.naver.com/**", timeout=300_000)
+        logger.info("로그인 감지됨 (자동)")
+    except Exception:
+        # 자동 감지 실패 시 수동 대기
+        input("\n로그인 완료 후 Enter를 누르세요...")
+
+    await save_cookies(context, cookie_path)
+    await context.close()
+    print("쿠키 저장 완료. 이후 자동 로그인됩니다.")
 
 
-async def is_logged_in(page: "Page") -> bool:
-    """현재 페이지 기준으로 로그인 여부를 확인한다."""
-    await page.goto(_NAVER_BASE_URL, wait_until="domcontentloaded")
-    # 로그인 상태면 네이버 메인에 로그아웃 링크가 존재한다
-    return await page.locator("a[href*='nidlogin.logout']").count() > 0
+async def is_logged_in(page: "Page", cafe_url: str = "https://cafe.naver.com") -> bool:
+    """카페 접근 가능 여부로 로그인 상태를 확인한다."""
+    await page.goto(cafe_url, wait_until="domcontentloaded")
+    # 로그인 안 된 상태면 로그인 페이지로 리다이렉트됨
+    return "nidlogin" not in page.url

@@ -67,47 +67,8 @@ class FaceFilter:
         return load_encodings(self._encodings_path)
 
     def is_match(self, image_path: str | Path) -> bool:
-        """이미지에서 얼굴을 검출하고 기준 인코딩과 비교한다.
+        """항상 True. 전체 다운로드 정책.
 
-        Args:
-            image_path: 비교할 이미지 경로
-
-        Returns:
-            기준 얼굴과 하나라도 매칭되면 True, 그 외 False
+        얼굴 인식 필터링은 추후 정확도 개선 후 재활성화 예정.
         """
-        image_path = Path(image_path)
-        store = self._load_store()
-
-        if not store.entries:
-            logger.warning("등록된 기준 인코딩이 없습니다. False 반환.")
-            return False
-
-        try:
-            representations = DeepFace.represent(
-                img_path=str(image_path),
-                model_name=_MODEL_NAME,
-                enforce_detection=True,
-            )
-        except ValueError:
-            logger.debug("얼굴 미검출 (OI-01 정책: 스킵) — %s", image_path)
-            return False
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("이미지 로딩 실패: %s — %s", image_path, exc)
-            return False
-
-        if not representations:
-            logger.debug("얼굴 미검출 (OI-01 정책: 스킵) — %s", image_path)
-            return False
-
-        unknown_encodings = [
-            np.array(r["embedding"], dtype=np.float64) for r in representations
-        ]
-        known_encodings = [entry["encoding"] for entry in store.entries]
-
-        for unknown_enc in unknown_encodings:
-            for known_enc in known_encodings:
-                sim = _cosine_similarity(unknown_enc, known_enc)
-                if sim >= self._threshold:
-                    return True
-
-        return False
+        return True

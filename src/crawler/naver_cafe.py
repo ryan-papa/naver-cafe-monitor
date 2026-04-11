@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from playwright.async_api import async_playwright
 
 from src.crawler.parser import PostDetail, PostSummary, parse_post_detail, parse_post_list
-from src.crawler.session import build_context, is_logged_in, login, restore_cookies, save_cookies
+from src.crawler.session import build_context, is_logged_in, restore_cookies, save_cookies
 from src.crawler.urls import build_board_url
 
 if TYPE_CHECKING:
@@ -72,8 +72,12 @@ class NaverCafeCrawler:
             if cookie_restored and await is_logged_in(page):
                 logger.info("저장된 세션으로 로그인 상태 확인")
                 return
-            logger.info("새 로그인 수행")
-            await login(page, self._config.naver_id, self._config.naver_pw)
+            logger.warning("쿠키 로그인 실패. 수동 로그인이 필요합니다.")
+            logger.warning("다음 명령어를 실행하세요: python -m src.crawler.login")
+            raise RuntimeError(
+                "로그인 실패. 먼저 수동 로그인을 실행하세요:\n"
+                "  python -m src.crawler.login"
+            )
         finally:
             await page.close()
 

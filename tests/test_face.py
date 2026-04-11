@@ -116,67 +116,47 @@ class TestCosineSimilarity:
 
 
 class TestFaceFilterIsMatch:
+    """is_match()는 전체 다운로드 정책으로 항상 True를 반환한다."""
+
     def _store(self, tmp: Path, e: np.ndarray, label: str = "ref") -> Path:
         p = tmp / "enc.json"
         _save(p, [{"label": label, "encoding": e}])
         return p
 
-    def test_no_face_returns_false(self, tmp_path: Path) -> None:
+    def test_always_returns_true(self, tmp_path: Path) -> None:
+        """어떤 이미지든 항상 True를 반환하는지 확인."""
+        jp = self._store(tmp_path, _enc(0))
+        img = tmp_path / "any.jpg"; img.touch()
+        ff = FaceFilter(threshold=0.30, encodings_path=jp)
+        assert ff.is_match(img) is True
+
+    def test_returns_true_without_face(self, tmp_path: Path) -> None:
+        """얼굴이 없는 이미지에도 True를 반환하는지 확인."""
         jp = self._store(tmp_path, _enc(0))
         img = tmp_path / "empty.jpg"; img.touch()
         ff = FaceFilter(threshold=0.30, encodings_path=jp)
-        with patch("src.face.filter.DeepFace") as m:
-            m.represent.side_effect = ValueError("no face")
-            assert ff.is_match(img) is False
+        assert ff.is_match(img) is True
 
-    def test_match_returns_true(self, tmp_path: Path) -> None:
-        e = _enc(5)
-        jp = self._store(tmp_path, e)
-        img = tmp_path / "match.jpg"; img.touch()
-        ff = FaceFilter(threshold=0.30, encodings_path=jp)
-        with patch("src.face.filter.DeepFace") as m:
-            m.represent.return_value = [_repr(e)]
-            assert ff.is_match(img) is True
-
-    def test_no_match_returns_false(self, tmp_path: Path) -> None:
+    def test_returns_true_with_high_threshold(self, tmp_path: Path) -> None:
+        """높은 threshold에서도 항상 True를 반환하는지 확인."""
         jp = self._store(tmp_path, _enc(6))
         img = tmp_path / "stranger.jpg"; img.touch()
         ff = FaceFilter(threshold=0.99, encodings_path=jp)
-        with patch("src.face.filter.DeepFace") as m:
-            m.represent.return_value = [_repr(_enc(99))]
-            assert ff.is_match(img) is False
+        assert ff.is_match(img) is True
 
-    def test_threshold_controls_matching(self, tmp_path: Path) -> None:
-        e = _enc(7)
-        jp = self._store(tmp_path, e)
-        img = tmp_path / "img.jpg"; img.touch()
-        ff = FaceFilter(threshold=0.5, encodings_path=jp)
-        with patch("src.face.filter.DeepFace") as m:
-            m.represent.return_value = [_repr(e)]
-            assert ff.is_match(img) is True
-
-    def test_multi_faces_one_match(self, tmp_path: Path) -> None:
-        ref = _enc(8)
-        jp = self._store(tmp_path, ref)
-        img = tmp_path / "multi.jpg"; img.touch()
-        ff = FaceFilter(threshold=0.99, encodings_path=jp)
-        with patch("src.face.filter.DeepFace") as m:
-            m.represent.return_value = [_repr(_enc(88)), _repr(ref)]
-            assert ff.is_match(img) is True
-
-    def test_multi_faces_no_match(self, tmp_path: Path) -> None:
-        jp = self._store(tmp_path, _enc(9))
-        img = tmp_path / "multi_no.jpg"; img.touch()
-        ff = FaceFilter(threshold=0.9999, encodings_path=jp)
-        with patch("src.face.filter.DeepFace") as m:
-            m.represent.return_value = [_repr(_enc(91)), _repr(_enc(92))]
-            assert ff.is_match(img) is False
-
-    def test_empty_store_returns_false(self, tmp_path: Path) -> None:
+    def test_returns_true_with_empty_store(self, tmp_path: Path) -> None:
+        """빈 인코딩 스토어에서도 True를 반환하는지 확인."""
         jp = tmp_path / "empty.json"
         jp.write_text("[]", encoding="utf-8")
         img = tmp_path / "img.jpg"; img.touch()
-        assert FaceFilter(encodings_path=jp).is_match(img) is False
+        assert FaceFilter(encodings_path=jp).is_match(img) is True
+
+    def test_returns_true_with_string_path(self, tmp_path: Path) -> None:
+        """문자열 경로로도 True를 반환하는지 확인."""
+        jp = self._store(tmp_path, _enc(1))
+        img = tmp_path / "str.jpg"; img.touch()
+        ff = FaceFilter(encodings_path=jp)
+        assert ff.is_match(str(img)) is True
 
     def test_from_config_reads_threshold(self) -> None:
         cfg = MagicMock()

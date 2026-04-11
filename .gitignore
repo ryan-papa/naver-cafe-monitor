@@ -10,6 +10,19 @@ config/*.yaml
 data/faces/*
 !data/faces/.gitkeep
 
+# Google credentials & tokens
+config/google_credentials.json
+config/google_token.json
+
+# Cookies (session data)
+data/cookies.json
+
+# Downloaded images
+data/images/
+
+# Last seen state
+data/last_seen.json
+
 # Logs (keep directory via .gitkeep)
 logs/*
 !logs/.gitkeep

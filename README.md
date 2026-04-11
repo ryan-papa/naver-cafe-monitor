@@ -16,13 +16,35 @@
 - Python 3.11+
 - Docker (선택)
 
+### 시스템 의존성 (macOS)
+
+```bash
+brew install cmake python@3.11
+```
+
+> `dlib` (얼굴 인식 엔진) 빌드에 cmake 필수. 시스템 Python 3.9에서는 빌드 실패 — Python 3.11+ 사용.
+
+### Linux (Ubuntu/Debian)
+
+```bash
+apt-get install -y cmake python3-dev
+```
+
 ## 설치 및 실행
 
 ```bash
+python3.11 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 playwright install chromium
 cp .env.example .env          # 환경변수 설정
 cp config/config.example.yaml config/config.yaml  # 설정 편집
+```
+
+### 얼굴 기준 이미지 등록
+
+```bash
+# data/faces/reference/ 에 자녀 정면 사진 3~5장 준비 후:
+python -m src.face.cli register data/faces/reference/photo.jpg --label "이름"
 ```
 
 ```bash

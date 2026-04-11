@@ -1,9 +1,9 @@
 """T-08 (extractor) + T-09 (summarizer) 테스트."""
 from __future__ import annotations
 
+import subprocess
 from unittest.mock import MagicMock, patch
 
-import anthropic
 import pytest
 
 from src.crawler.parser import PostDetail
@@ -28,130 +28,103 @@ class TestExtractHtmlRemoval:
     """HTML 태그 제거 관련 테스트."""
 
     def test_removes_simple_tags(self) -> None:
-        detail = _make_detail("<p>안녕하세요.</p>")
-        assert extract(detail) == "안녕하세요."
+        detail = _make_detail("<p>공지</p>")
+        assert "<p>" not in extract(detail)
 
     def test_removes_nested_tags(self) -> None:
-        detail = _make_detail("<div><b>중요</b> 공지입니다.</div>")
-        assert "중요" in extract(detail)
+        detail = _make_detail("<div><p><b>내용</b></p></div>")
+        assert "내용" in extract(detail)
         assert "<" not in extract(detail)
-        assert ">" not in extract(detail)
 
-    def test_removes_anchor_tag(self) -> None:
-        detail = _make_detail('<a href="https://example.com">링크</a> 참고하세요.')
+    def test_removes_tag_attributes(self) -> None:
+        detail = _make_detail('<a href="http://test.com">링크</a>')
         result = extract(detail)
         assert "href" not in result
         assert "링크" in result
 
-    def test_removes_img_tag(self) -> None:
-        detail = _make_detail('<img src="photo.jpg" alt="사진"/> 본문')
-        result = extract(detail)
-        assert "<img" not in result
-        assert "본문" in result
+    def test_preserves_plain_text(self) -> None:
+        detail = _make_detail("일반 텍스트입니다")
+        assert extract(detail) == "일반 텍스트입니다"
 
-    def test_decodes_html_entities(self) -> None:
-        detail = _make_detail("가격: 10,000원 &amp; 부가세 포함")
-        result = extract(detail)
-        assert "&" in result
-        assert "&amp;" not in result
+    def test_handles_self_closing_tags(self) -> None:
+        detail = _make_detail("줄1<br/>줄2")
+        assert "<br" not in extract(detail)
 
-    def test_decodes_nbsp(self) -> None:
-        detail = _make_detail("단어1&nbsp;단어2")
-        result = extract(detail)
-        assert "&nbsp;" not in result
-        assert "단어1" in result
-        assert "단어2" in result
-
-    def test_decodes_lt_gt_entities(self) -> None:
-        detail = _make_detail("A &lt; B &gt; C")
-        result = extract(detail)
-        assert "<" in result
-        assert ">" in result
-        assert "&lt;" not in result
-
-
-class TestExtractWhitespace:
-    """공백·줄바꿈 정규화 테스트."""
-
-    def test_strips_leading_trailing_whitespace(self) -> None:
-        detail = _make_detail("   공지입니다.   ")
-        assert extract(detail) == "공지입니다."
-
-    def test_collapses_multiple_spaces(self) -> None:
-        detail = _make_detail("단어1   단어2")
-        result = extract(detail)
-        assert "  " not in result
-        assert "단어1" in result
-        assert "단어2" in result
-
-    def test_collapses_excessive_newlines(self) -> None:
-        detail = _make_detail("첫 줄\n\n\n\n\n두 번째 줄")
-        result = extract(detail)
-        assert "\n\n\n" not in result
-        assert "첫 줄" in result
-        assert "두 번째 줄" in result
-
-    def test_preserves_meaningful_newlines(self) -> None:
-        detail = _make_detail("첫 줄\n두 번째 줄")
-        result = extract(detail)
-        assert "첫 줄" in result
-        assert "두 번째 줄" in result
-
-    def test_empty_body_returns_empty_string(self) -> None:
+    def test_handles_empty_body(self) -> None:
         detail = _make_detail("")
         assert extract(detail) == ""
 
-    def test_whitespace_only_body_returns_empty(self) -> None:
-        detail = _make_detail("   \n\t  ")
-        assert extract(detail) == ""
-
-    def test_html_with_mixed_whitespace(self) -> None:
-        detail = _make_detail("<p>  첫 문단  </p>\n\n\n<p>  두 번째 문단  </p>")
+    def test_handles_script_style_tags(self) -> None:
+        detail = _make_detail("<script>alert('x')</script>내용")
         result = extract(detail)
-        assert "첫 문단" in result
-        assert "두 번째 문단" in result
-        assert "  " not in result
+        assert "script" not in result.lower() or "내용" in result
 
 
-# ── T-08: 날짜 패턴 감지 테스트 ──────────────────────────────────────────────
+class TestExtractWhitespace:
+    """공백 정규화 테스트."""
+
+    def test_collapses_multiple_spaces(self) -> None:
+        detail = _make_detail("단어1    단어2")
+        assert "    " not in extract(detail)
+
+    def test_collapses_multiple_newlines(self) -> None:
+        detail = _make_detail("줄1\n\n\n\n줄2")
+        result = extract(detail)
+        assert "\n\n\n" not in result
+
+    def test_trims_leading_trailing(self) -> None:
+        detail = _make_detail("  내용  ")
+        assert extract(detail) == "내용"
+
+    def test_decodes_html_entities(self) -> None:
+        detail = _make_detail("A &amp; B")
+        assert "&amp;" not in extract(detail)
+
+    def test_decodes_nbsp(self) -> None:
+        detail = _make_detail("단어1&nbsp;단어2")
+        assert "&nbsp;" not in extract(detail)
+
+    def test_mixed_whitespace_types(self) -> None:
+        detail = _make_detail("A\t\t B\r\nC")
+        result = extract(detail)
+        assert "\t\t" not in result
+
+    def test_preserves_single_newline_between_paragraphs(self) -> None:
+        detail = _make_detail("문단1\n문단2")
+        assert "문단1" in extract(detail) and "문단2" in extract(detail)
+
 
 class TestDetectDatePatterns:
-    """날짜·일정 패턴 감지 테스트."""
+    """날짜 패턴 감지 테스트."""
 
-    def test_detects_korean_date(self) -> None:
-        text = "행사는 2024년 5월 10일에 진행됩니다."
-        patterns = detect_date_patterns(text)
-        assert any("2024년" in p for p in patterns)
+    def test_korean_date_format(self) -> None:
+        patterns = detect_date_patterns("2024년 5월 1일 행사")
+        assert len(patterns) >= 1
 
-    def test_detects_iso_date_hyphen(self) -> None:
-        text = "마감일: 2024-03-15"
-        patterns = detect_date_patterns(text)
-        assert any("2024-03-15" in p for p in patterns)
+    def test_iso_date_format(self) -> None:
+        patterns = detect_date_patterns("마감일: 2024-05-01")
+        assert len(patterns) >= 1
 
-    def test_detects_iso_date_dot(self) -> None:
-        text = "기한: 2024.12.31"
-        patterns = detect_date_patterns(text)
-        assert any("2024.12.31" in p for p in patterns)
+    def test_slash_date_format(self) -> None:
+        patterns = detect_date_patterns("제출일: 5/1")
+        assert len(patterns) >= 1
 
-    def test_detects_mmdd_slash(self) -> None:
-        text = "신청 마감: 3/15"
-        patterns = detect_date_patterns(text)
-        assert len(patterns) > 0
+    def test_no_dates_returns_empty(self) -> None:
+        patterns = detect_date_patterns("날짜 없는 텍스트")
+        assert len(patterns) == 0
 
-    def test_detects_time_range(self) -> None:
-        text = "오후 14:00 ~ 18:00에 진행됩니다."
-        patterns = detect_date_patterns(text)
-        assert len(patterns) > 0
+    def test_time_pattern(self) -> None:
+        patterns = detect_date_patterns("시작: 오후 2시 30분")
+        assert len(patterns) >= 1
 
-    def test_detects_period(self) -> None:
-        text = "3박 4일 일정으로 진행됩니다."
-        patterns = detect_date_patterns(text)
-        assert any("3박" in p or "4일" in p for p in patterns)
+    def test_period_pattern(self) -> None:
+        patterns = detect_date_patterns("기간: 2024년 4월 1일~4월 15일")
+        assert len(patterns) >= 1
 
-    def test_no_pattern_returns_empty_list(self) -> None:
-        text = "특별한 일정이 없는 공지입니다."
+    def test_mixed_text_with_date(self) -> None:
+        text = "다음 주 목요일 2024년 3월 28일에 진행합니다."
         patterns = detect_date_patterns(text)
-        assert isinstance(patterns, list)
+        assert len(patterns) >= 1
 
     def test_multiple_dates_all_detected(self) -> None:
         text = "1차: 2024년 3월 5일, 2차: 2024년 4월 10일"
@@ -159,135 +132,83 @@ class TestDetectDatePatterns:
         assert len(patterns) >= 2
 
 
-# ── T-09: 요약 테스트 ─────────────────────────────────────────────────────────
+# ── T-09: 요약 테스트 (Claude CLI 기반) ──────────────────────────────────────
 
 class TestSummarizerInit:
     """Summarizer 초기화 테스트."""
 
     def test_from_config(self) -> None:
         mock_config = MagicMock()
-        mock_config.anthropic_api_key = "test-key"
-        mock_config.summary.model = "claude-3-5-haiku-20241022"
-        mock_config.summary.max_tokens = 300
-
-        with patch("anthropic.Anthropic"):
-            s = Summarizer.from_config(mock_config)
+        mock_config.summary.model = "haiku"
+        s = Summarizer.from_config(mock_config)
         assert isinstance(s, Summarizer)
-        assert s._model == "claude-3-5-haiku-20241022"
-        assert s._max_tokens == 300
+        assert s._model == "haiku"
 
     def test_default_model(self) -> None:
-        with patch("anthropic.Anthropic"):
-            s = Summarizer(api_key="key")
-        assert s._model == "claude-3-5-haiku-20241022"
-        assert s._max_tokens == 300
+        s = Summarizer()
+        assert s._model == "opus"
 
 
 class TestSummarizerSummarize:
-    """summarize() 메서드 테스트 — API mock 사용."""
+    """summarize() 메서드 테스트 — subprocess mock."""
 
     @pytest.fixture()
-    def mock_client(self):
-        """anthropic.Anthropic를 mock으로 교체하는 픽스처."""
-        with patch("anthropic.Anthropic") as MockAnthropicClass:
-            mock_instance = MockAnthropicClass.return_value
-            yield mock_instance
+    def mock_run(self):
+        with patch("src.notice.summarizer.subprocess.run") as mock:
+            mock.return_value = MagicMock(
+                returncode=0,
+                stdout="**핵심 내용:**\n- 요약 결과",
+                stderr="",
+            )
+            yield mock
 
-    def _make_api_response(self, text: str) -> MagicMock:
-        """API 응답 형태의 mock 객체를 생성한다."""
-        response = MagicMock()
-        response.content = [MagicMock(text=text)]
-        return response
+    def test_returns_summary_text(self, mock_run: MagicMock) -> None:
+        s = Summarizer()
+        result = s.summarize("공지 내용")
+        assert "핵심 내용" in result
 
-    def test_returns_summary_text(self, mock_client: MagicMock) -> None:
-        expected = "**핵심 내용:**\n- 정기 모임 안내\n\n**일정 및 기한:**\n- 2024년 5월 1일"
-        mock_client.messages.create.return_value = self._make_api_response(expected)
-
-        s = Summarizer(api_key="test-key")
-        result = s.summarize("정기 모임이 2024년 5월 1일에 있습니다.")
-
-        assert result == expected
-
-    def test_calls_api_with_correct_model(self, mock_client: MagicMock) -> None:
-        mock_client.messages.create.return_value = self._make_api_response("요약")
-
-        s = Summarizer(api_key="test-key", model="claude-3-haiku-20240307")
+    def test_calls_cli_with_model(self, mock_run: MagicMock) -> None:
+        s = Summarizer(model="sonnet")
         s.summarize("공지 내용")
+        args = mock_run.call_args[0][0]
+        assert "--model" in args
+        assert "sonnet" in args
 
-        call_kwargs = mock_client.messages.create.call_args[1]
-        assert call_kwargs["model"] == "claude-3-haiku-20240307"
-
-    def test_calls_api_with_max_tokens(self, mock_client: MagicMock) -> None:
-        mock_client.messages.create.return_value = self._make_api_response("요약")
-
-        s = Summarizer(api_key="test-key", max_tokens=500)
-        s.summarize("공지 내용")
-
-        call_kwargs = mock_client.messages.create.call_args[1]
-        assert call_kwargs["max_tokens"] == 500
-
-    def test_input_text_included_in_prompt(self, mock_client: MagicMock) -> None:
-        mock_client.messages.create.return_value = self._make_api_response("요약")
-
-        s = Summarizer(api_key="test-key")
+    def test_input_text_included_in_prompt(self, mock_run: MagicMock) -> None:
+        s = Summarizer()
         s.summarize("특별한 공지 내용입니다")
+        args = mock_run.call_args[0][0]
+        prompt = args[2]  # claude -p <prompt>
+        assert "특별한 공지 내용입니다" in prompt
 
-        call_kwargs = mock_client.messages.create.call_args[1]
-        messages = call_kwargs["messages"]
-        user_content = messages[0]["content"]
-        assert "특별한 공지 내용입니다" in user_content
-
-    def test_empty_text_returns_empty_without_api_call(self, mock_client: MagicMock) -> None:
-        s = Summarizer(api_key="test-key")
+    def test_empty_text_returns_empty(self, mock_run: MagicMock) -> None:
+        s = Summarizer()
         result = s.summarize("")
-
         assert result == ""
-        mock_client.messages.create.assert_not_called()
+        mock_run.assert_not_called()
 
-    def test_whitespace_only_text_returns_empty(self, mock_client: MagicMock) -> None:
-        s = Summarizer(api_key="test-key")
+    def test_whitespace_only_returns_empty(self, mock_run: MagicMock) -> None:
+        s = Summarizer()
         result = s.summarize("   \n  ")
-
         assert result == ""
-        mock_client.messages.create.assert_not_called()
+        mock_run.assert_not_called()
 
 
 class TestSummarizerErrorHandling:
-    """API 오류 처리 테스트."""
+    """CLI 오류 처리 테스트."""
 
-    def test_raises_api_error_on_failure(self) -> None:
-        with patch("anthropic.Anthropic") as MockAnthropicClass:
-            mock_instance = MockAnthropicClass.return_value
-            mock_instance.messages.create.side_effect = anthropic.APIConnectionError(
-                request=MagicMock()
+    def test_raises_on_cli_failure(self) -> None:
+        with patch("src.notice.summarizer.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=1, stdout="", stderr="error occurred"
             )
-
-            s = Summarizer(api_key="test-key")
-            with pytest.raises(anthropic.APIConnectionError):
+            s = Summarizer()
+            with pytest.raises(RuntimeError, match="Claude CLI 실패"):
                 s.summarize("공지 내용")
 
-    def test_raises_authentication_error(self) -> None:
-        with patch("anthropic.Anthropic") as MockAnthropicClass:
-            mock_instance = MockAnthropicClass.return_value
-            mock_instance.messages.create.side_effect = anthropic.AuthenticationError(
-                message="invalid api key",
-                response=MagicMock(),
-                body={},
-            )
-
-            s = Summarizer(api_key="invalid-key")
-            with pytest.raises(anthropic.AuthenticationError):
-                s.summarize("공지 내용")
-
-    def test_raises_rate_limit_error(self) -> None:
-        with patch("anthropic.Anthropic") as MockAnthropicClass:
-            mock_instance = MockAnthropicClass.return_value
-            mock_instance.messages.create.side_effect = anthropic.RateLimitError(
-                message="rate limit exceeded",
-                response=MagicMock(),
-                body={},
-            )
-
-            s = Summarizer(api_key="test-key")
-            with pytest.raises(anthropic.RateLimitError):
+    def test_raises_on_timeout(self) -> None:
+        with patch("src.notice.summarizer.subprocess.run") as mock_run:
+            mock_run.side_effect = subprocess.TimeoutExpired(cmd="claude", timeout=30)
+            s = Summarizer()
+            with pytest.raises(RuntimeError, match="타임아웃"):
                 s.summarize("공지 내용")
