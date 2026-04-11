@@ -81,8 +81,8 @@ async def _fetch_new_articles(
         await page.close()
 
 
-async def _fetch_post_images(context, post_url: str) -> list[str]:
-    """게시물 상세에서 이미지 URL을 수집한다."""
+async def _fetch_post_detail(context, post_url: str) -> dict:
+    """게시물 상세에서 이미지 URL + 텍스트 본문을 수집한다."""
     page = await context.new_page()
     try:
         await page.goto(post_url, wait_until="domcontentloaded")
@@ -91,15 +91,20 @@ async def _fetch_post_images(context, post_url: str) -> list[str]:
         frame = page.frame("cafe_main") or page.main_frame
         body = await frame.query_selector(".se-main-container, #postContent, .article-viewer")
         if not body:
-            return []
+            return {"images": [], "text": ""}
 
+        # 이미지
         img_els = await body.query_selector_all("img")
         urls = []
         for img in img_els:
             src = await img.get_attribute("src") or await img.get_attribute("data-src") or ""
             if src.strip() and not src.startswith("data:"):
                 urls.append(src.strip())
-        return urls
+
+        # 텍스트 본문
+        text = await body.inner_text()
+
+        return {"images": urls, "text": text.strip()}
     finally:
         await page.close()
 
@@ -124,8 +129,10 @@ async def _process_photo_board(
         title = article["title"]
         logger.info("[사진] 새 게시물: #%d %s", pid, title)
 
-        raw_urls = await _fetch_post_images(context, article["url"])
-        image_urls = _filter_image_urls(raw_urls)
+        detail = await _fetch_post_detail(context, article["url"])
+        image_urls = _filter_image_urls(detail["images"])
+        body_text = detail["text"]
+
         if not image_urls:
             logger.info("[사진] 이미지 없음, 스킵")
             max_id = max(max_id, pid)
@@ -140,12 +147,18 @@ async def _process_photo_board(
         tokens = gphotos.upload_images(paths)
         if tokens:
             gphotos.add_to_album(_PHOTO_ALBUM_ID, tokens)
+
+            # 메시지 구성: 사진 알림 + 전달사항 (있으면)
+            msg = f"[세화유치원 사진]\n\n📷 {title}\n사진 {len(tokens)}장 업로드 완료"
+            if body_text:
+                # 간단 요약 (긴 경우 잘라서)
+                notice = body_text[:500]
+                msg += f"\n\n📝 전달사항:\n{notice}"
+
             kakao.send_text(
-                f"[세화유치원 사진]\n\n"
-                f"📷 {title}\n"
-                f"사진 {len(tokens)}장 업로드 완료",
-                link_url=_PHOTO_ALBUM_URL,
-                button_label="📷 앨범에서 보기",
+                msg,
+                link_url=article["url"],
+                button_label="카페에서 보기",
             )
             logger.info("[사진] %d장 업로드 & 전송 완료", len(tokens))
 
@@ -176,8 +189,8 @@ async def _process_notice_board(
         post_url = article["url"]
         logger.info("[공지] 새 게시물: #%d %s", pid, title)
 
-        raw_urls = await _fetch_post_images(context, post_url)
-        image_urls = _filter_image_urls(raw_urls)
+        detail = await _fetch_post_detail(context, post_url)
+        image_urls = _filter_image_urls(detail["images"])
 
         if image_urls:
             paths = await downloader.download_all(str(pid), image_urls)
