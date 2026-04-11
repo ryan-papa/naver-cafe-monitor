@@ -112,4 +112,11 @@ def retry_from_config(config: "Config") -> Callable[[F], F]:
     """
     max_retries = getattr(config, "retry_max", _DEFAULT_MAX_RETRIES)
     delay = getattr(config, "retry_delay", _DEFAULT_DELAY)
-    return make_retry_decorator(max_retries=max_retries, delay=delay)
+    exponential_backoff = getattr(
+        config, "retry_exponential_backoff", False
+    )
+    return make_retry_decorator(
+        max_retries=max_retries,
+        delay=delay,
+        exponential_backoff=exponential_backoff,
+    )
