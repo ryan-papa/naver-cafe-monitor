@@ -54,8 +54,15 @@ class KakaoMessenger:
 
     @staticmethod
     def _to_mobile_url(url: str) -> str:
-        """네이버 카페 URL을 모바일 URL로 변환한다."""
-        return url.replace("://cafe.naver.com/", "://m.cafe.naver.com/")
+        """네이버 카페 URL을 모바일 URL로 변환한다.
+
+        f-e/cafes/{id}/articles/{pid} → sewhakinder/{pid} 형식으로 변환.
+        """
+        import re
+        m = re.search(r"/articles/(\d+)", url)
+        if m and "cafe.naver.com" in url:
+            return f"https://m.cafe.naver.com/sewhakinder/{m.group(1)}"
+        return url
 
     def send_text(self, message: str, link_url: str = "https://cafe.naver.com/sewhakinder", button_label: str = "") -> None:
         """텍스트 메시지를 전송한다."""
