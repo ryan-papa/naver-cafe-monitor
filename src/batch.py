@@ -149,15 +149,21 @@ async def _process_photo_board(
         if tokens:
             gphotos.add_to_album(_PHOTO_ALBUM_ID, tokens)
 
-            # 메시지 구성: 사진 알림 + 전달사항 (있으면)
-            msg = f"[세화유치원 사진]\n\n📷 {title}\n사진 {len(tokens)}장 업로드 완료"
+            post_link = article["url"]
+
+            # 전달사항 먼저
             if body_text:
                 notice = summarizer.summarize_short(body_text)
-                msg += f"\n\n📝 전달사항:\n{notice}"
+                kakao.send_text(
+                    f"[세화유치원 전달사항]\n\n📝 {title}\n\n{notice}",
+                    link_url=post_link,
+                    button_label="카페에서 보기",
+                )
 
+            # 사진 업로드 알림
             kakao.send_text(
-                msg,
-                link_url=article["url"],
+                f"[세화유치원 사진]\n\n📷 {title}\n사진 {len(tokens)}장 업로드 완료",
+                link_url=post_link,
                 button_label="카페에서 보기",
             )
             logger.info("[사진] %d장 업로드 & 전송 완료", len(tokens))
