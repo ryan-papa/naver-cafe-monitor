@@ -121,15 +121,17 @@ class TestSendImages:
         call_kwargs = mock_message_client.send_message_to_me.call_args[1]
         assert "오늘의 공지" in call_kwargs["text"]
 
-    def test_send_images_path_in_message(
-        self, messenger: KakaoMessenger, mock_message_client: MagicMock
+    def test_send_images_name_in_message(
+        self, messenger: KakaoMessenger, mock_message_client: MagicMock,
+        tmp_path: Path,
     ) -> None:
-        """이미지 경로가 메시지 텍스트에 포함되는지 확인."""
-        paths = [Path("/tmp/photo.jpg")]
-        messenger.send_images(paths)
+        """이미지 파일명이 메시지 텍스트에 포함되는지 확인."""
+        img = tmp_path / "photo.jpg"
+        img.write_bytes(b"\xff\xd8\xff\xe0test-image-data")
+        messenger.send_images([img])
 
         call_kwargs = mock_message_client.send_message_to_me.call_args[1]
-        assert "/tmp/photo.jpg" in call_kwargs["text"]
+        assert "photo.jpg" in call_kwargs["text"]
 
     def test_send_images_batches_over_limit(
         self, messenger: KakaoMessenger, mock_message_client: MagicMock
