@@ -58,14 +58,11 @@ async def login(page: "Page", naver_id: str, naver_pw: str) -> None:
     logger.info("네이버 로그인 시도: %s", naver_id)
     await page.goto(_NAVER_LOGIN_URL, wait_until="domcontentloaded")
 
-    # JavaScript로 입력 필드에 값을 주입 (봇 탐지 우회)
-    await page.evaluate(
-        """([id, pw]) => {
-            document.querySelector('#id').value = id;
-            document.querySelector('#pw').value = pw;
-        }""",
-        [naver_id, naver_pw],
-    )
+    # human-like 입력으로 봇 탐지 회피 (JS 직접 주입 대신 page.type 사용)
+    await page.click("#id")
+    await page.type("#id", naver_id, delay=50)
+    await page.click("#pw")
+    await page.type("#pw", naver_pw, delay=50)
     await page.click("input[type=submit]")
     await page.wait_for_load_state("domcontentloaded")
     logger.info("네이버 로그인 완료")

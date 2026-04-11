@@ -4,7 +4,7 @@ face_recognition 라이브러리를 mock하여 실제 모델 로딩 없이 테�
 """
 from __future__ import annotations
 
-import pickle
+import json
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -35,6 +35,15 @@ def _make_encoding(seed: int = 0) -> np.ndarray:
     return rng.random(128).astype(np.float64)
 
 
+def _save_store_json(path: Path, entries: list[dict]) -> None:
+    """EncodingStore를 JSON 파일로 저장한다."""
+    serializable = [
+        {"label": e["label"], "encoding": e["encoding"].tolist() if isinstance(e["encoding"], np.ndarray) else list(e["encoding"])}
+        for e in entries
+    ]
+    path.write_text(json.dumps(serializable, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 # ---------------------------------------------------------------------------
 # encoder.py 테스트
 # ---------------------------------------------------------------------------
@@ -42,31 +51,27 @@ def _make_encoding(seed: int = 0) -> np.ndarray:
 
 class TestLoadEncodings:
     def test_returns_empty_store_when_file_missing(self, tmp_path: Path) -> None:
-        store = load_encodings(tmp_path / "nonexistent.pkl")
+        store = load_encodings(tmp_path / "nonexistent.json")
         assert isinstance(store, EncodingStore)
         assert store.entries == []
 
     def test_loads_existing_store(self, tmp_path: Path) -> None:
         enc = _make_encoding(1)
-        original = EncodingStore(entries=[{"label": "alice", "encoding": enc}])
-        pkl = tmp_path / "encodings.pkl"
-        with pkl.open("wb") as f:
-            pickle.dump(original, f)
+        json_path = tmp_path / "encodings.json"
+        _save_store_json(json_path, [{"label": "alice", "encoding": enc}])
 
-        loaded = load_encodings(pkl)
+        loaded = load_encodings(json_path)
         assert len(loaded.entries) == 1
         assert loaded.entries[0]["label"] == "alice"
-        np.testing.assert_array_equal(loaded.entries[0]["encoding"], enc)
+        np.testing.assert_array_almost_equal(loaded.entries[0]["encoding"], enc)
 
-    def test_backwards_compat_list_format(self, tmp_path: Path) -> None:
-        """이전 list 포맷도 로딩 가능해야 한다."""
+    def test_loads_list_format(self, tmp_path: Path) -> None:
+        """리스트 포맷도 로딩 가능해야 한다."""
         enc = _make_encoding(2)
-        old_data = [{"label": "bob", "encoding": enc}]
-        pkl = tmp_path / "encodings.pkl"
-        with pkl.open("wb") as f:
-            pickle.dump(old_data, f)
+        json_path = tmp_path / "encodings.json"
+        _save_store_json(json_path, [{"label": "bob", "encoding": enc}])
 
-        loaded = load_encodings(pkl)
+        loaded = load_encodings(json_path)
         assert len(loaded.entries) == 1
         assert loaded.entries[0]["label"] == "bob"
 
@@ -76,16 +81,16 @@ class TestRegister:
         enc = _make_encoding(3)
         fake_image = tmp_path / "person.jpg"
         fake_image.touch()
-        pkl = tmp_path / "encodings.pkl"
+        json_path = tmp_path / "encodings.json"
 
         with patch("src.face.encoder.face_recognition") as mock_fr:
             mock_fr.load_image_file.return_value = MagicMock()
             mock_fr.face_encodings.return_value = [enc]
 
-            count = register(fake_image, label="carol", encodings_path=pkl)
+            count = register(fake_image, label="carol", encodings_path=json_path)
 
         assert count == 1
-        store = load_encodings(pkl)
+        store = load_encodings(json_path)
         assert len(store.entries) == 1
         assert store.entries[0]["label"] == "carol"
 
@@ -93,16 +98,16 @@ class TestRegister:
         encs = [_make_encoding(i) for i in range(3)]
         fake_image = tmp_path / "group.jpg"
         fake_image.touch()
-        pkl = tmp_path / "encodings.pkl"
+        json_path = tmp_path / "encodings.json"
 
         with patch("src.face.encoder.face_recognition") as mock_fr:
             mock_fr.load_image_file.return_value = MagicMock()
             mock_fr.face_encodings.return_value = encs
 
-            count = register(fake_image, label="group", encodings_path=pkl)
+            count = register(fake_image, label="group", encodings_path=json_path)
 
         assert count == 3
-        store = load_encodings(pkl)
+        store = load_encodings(json_path)
         assert len(store.entries) == 3
 
     def test_register_raises_when_no_face(self, tmp_path: Path) -> None:
@@ -114,11 +119,11 @@ class TestRegister:
             mock_fr.face_encodings.return_value = []
 
             with pytest.raises(NoFaceDetectedError):
-                register(fake_image, encodings_path=tmp_path / "enc.pkl")
+                register(fake_image, encodings_path=tmp_path / "enc.json")
 
     def test_register_raises_when_file_missing(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError):
-            register(tmp_path / "ghost.jpg", encodings_path=tmp_path / "enc.pkl")
+            register(tmp_path / "ghost.jpg", encodings_path=tmp_path / "enc.json")
 
     def test_register_accumulates_entries(self, tmp_path: Path) -> None:
         """두 번 등록하면 인코딩이 누적되어야 한다."""
@@ -128,19 +133,19 @@ class TestRegister:
         img_b = tmp_path / "b.jpg"
         img_a.touch()
         img_b.touch()
-        pkl = tmp_path / "enc.pkl"
+        json_path = tmp_path / "enc.json"
 
         with patch("src.face.encoder.face_recognition") as mock_fr:
             mock_fr.load_image_file.return_value = MagicMock()
             mock_fr.face_encodings.return_value = [enc_a]
-            register(img_a, label="dave", encodings_path=pkl)
+            register(img_a, label="dave", encodings_path=json_path)
 
         with patch("src.face.encoder.face_recognition") as mock_fr:
             mock_fr.load_image_file.return_value = MagicMock()
             mock_fr.face_encodings.return_value = [enc_b]
-            register(img_b, label="eve", encodings_path=pkl)
+            register(img_b, label="eve", encodings_path=json_path)
 
-        store = load_encodings(pkl)
+        store = load_encodings(json_path)
         assert len(store.entries) == 2
         labels = {e["label"] for e in store.entries}
         assert labels == {"dave", "eve"}
@@ -153,21 +158,19 @@ class TestRegister:
 
 class TestFaceFilterIsMatch:
     def _make_store(self, tmp_path: Path, enc: np.ndarray, label: str = "ref") -> Path:
-        pkl = tmp_path / "encodings.pkl"
-        store = EncodingStore(entries=[{"label": label, "encoding": enc}])
-        with pkl.open("wb") as f:
-            pickle.dump(store, f)
-        return pkl
+        json_path = tmp_path / "encodings.json"
+        _save_store_json(json_path, [{"label": label, "encoding": enc}])
+        return json_path
 
     # -- 얼굴 미검출 → False (OI-01 정책) -----------------------------------
 
     def test_no_face_detected_returns_false(self, tmp_path: Path) -> None:
         enc = _make_encoding(0)
-        pkl = self._make_store(tmp_path, enc)
+        json_path = self._make_store(tmp_path, enc)
         fake_image = tmp_path / "empty.jpg"
         fake_image.touch()
 
-        ff = FaceFilter(tolerance=0.6, encodings_path=pkl)
+        ff = FaceFilter(tolerance=0.6, encodings_path=json_path)
 
         with patch("src.face.filter.face_recognition") as mock_fr:
             mock_fr.load_image_file.return_value = MagicMock()
@@ -181,11 +184,11 @@ class TestFaceFilterIsMatch:
 
     def test_matching_face_returns_true(self, tmp_path: Path) -> None:
         enc = _make_encoding(5)
-        pkl = self._make_store(tmp_path, enc)
+        json_path = self._make_store(tmp_path, enc)
         fake_image = tmp_path / "match.jpg"
         fake_image.touch()
 
-        ff = FaceFilter(tolerance=0.6, encodings_path=pkl)
+        ff = FaceFilter(tolerance=0.6, encodings_path=json_path)
 
         with patch("src.face.filter.face_recognition") as mock_fr:
             mock_fr.load_image_file.return_value = MagicMock()
@@ -201,11 +204,11 @@ class TestFaceFilterIsMatch:
     def test_non_matching_face_returns_false(self, tmp_path: Path) -> None:
         enc_ref = _make_encoding(6)
         enc_unknown = _make_encoding(99)
-        pkl = self._make_store(tmp_path, enc_ref)
+        json_path = self._make_store(tmp_path, enc_ref)
         fake_image = tmp_path / "stranger.jpg"
         fake_image.touch()
 
-        ff = FaceFilter(tolerance=0.6, encodings_path=pkl)
+        ff = FaceFilter(tolerance=0.6, encodings_path=json_path)
 
         with patch("src.face.filter.face_recognition") as mock_fr:
             mock_fr.load_image_file.return_value = MagicMock()
@@ -220,12 +223,12 @@ class TestFaceFilterIsMatch:
 
     def test_tolerance_is_passed_to_compare_faces(self, tmp_path: Path) -> None:
         enc = _make_encoding(7)
-        pkl = self._make_store(tmp_path, enc)
+        json_path = self._make_store(tmp_path, enc)
         fake_image = tmp_path / "img.jpg"
         fake_image.touch()
 
         custom_tolerance = 0.4
-        ff = FaceFilter(tolerance=custom_tolerance, encodings_path=pkl)
+        ff = FaceFilter(tolerance=custom_tolerance, encodings_path=json_path)
 
         with patch("src.face.filter.face_recognition") as mock_fr:
             mock_fr.load_image_file.return_value = MagicMock()
@@ -240,19 +243,19 @@ class TestFaceFilterIsMatch:
             known_list, unknown_enc = call_args
             assert call_kwargs.get("tolerance") == pytest.approx(custom_tolerance)
             assert len(known_list) == 1
-            np.testing.assert_array_equal(known_list[0], enc)
-            np.testing.assert_array_equal(unknown_enc, enc)
+            np.testing.assert_array_almost_equal(known_list[0], enc)
+            np.testing.assert_array_almost_equal(unknown_enc, enc)
 
     # -- 복수 얼굴: 하나라도 매칭되면 True -----------------------------------
 
     def test_multiple_faces_one_match_returns_true(self, tmp_path: Path) -> None:
         enc_ref = _make_encoding(8)
         enc_stranger = _make_encoding(88)
-        pkl = self._make_store(tmp_path, enc_ref)
+        json_path = self._make_store(tmp_path, enc_ref)
         fake_image = tmp_path / "multi.jpg"
         fake_image.touch()
 
-        ff = FaceFilter(tolerance=0.6, encodings_path=pkl)
+        ff = FaceFilter(tolerance=0.6, encodings_path=json_path)
 
         with patch("src.face.filter.face_recognition") as mock_fr:
             mock_fr.load_image_file.return_value = MagicMock()
@@ -268,11 +271,11 @@ class TestFaceFilterIsMatch:
 
     def test_multiple_faces_no_match_returns_false(self, tmp_path: Path) -> None:
         enc_ref = _make_encoding(9)
-        pkl = self._make_store(tmp_path, enc_ref)
+        json_path = self._make_store(tmp_path, enc_ref)
         fake_image = tmp_path / "multi_no_match.jpg"
         fake_image.touch()
 
-        ff = FaceFilter(tolerance=0.6, encodings_path=pkl)
+        ff = FaceFilter(tolerance=0.6, encodings_path=json_path)
 
         with patch("src.face.filter.face_recognition") as mock_fr:
             mock_fr.load_image_file.return_value = MagicMock()
@@ -286,14 +289,12 @@ class TestFaceFilterIsMatch:
     # -- 기준 인코딩 없음 → False --------------------------------------------
 
     def test_empty_store_returns_false(self, tmp_path: Path) -> None:
-        pkl = tmp_path / "empty.pkl"
-        store = EncodingStore()
-        with pkl.open("wb") as f:
-            pickle.dump(store, f)
+        json_path = tmp_path / "empty.json"
+        json_path.write_text("[]", encoding="utf-8")
 
         fake_image = tmp_path / "img.jpg"
         fake_image.touch()
-        ff = FaceFilter(encodings_path=pkl)
+        ff = FaceFilter(encodings_path=json_path)
 
         with patch("src.face.filter.face_recognition"):
             result = ff.is_match(fake_image)

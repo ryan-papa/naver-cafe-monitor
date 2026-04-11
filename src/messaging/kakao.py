@@ -4,6 +4,7 @@ PyKakao 라이브러리를 사용하여 카카오 나에게 보내기 API로 메
 """
 from __future__ import annotations
 
+import base64
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -62,6 +63,19 @@ class KakaoMessenger:
             logger.error("카카오 텍스트 메시지 전송 실패: %s", exc)
             raise RuntimeError(f"카카오 텍스트 메시지 전송 실패: {exc}") from exc
 
+    @staticmethod
+    def _encode_image_base64(image_path: Path) -> str:
+        """이미지 파일을 base64 문자열로 인코딩한다.
+
+        Args:
+            image_path: 이미지 파일 경로
+
+        Returns:
+            base64 인코딩된 문자열
+        """
+        data = image_path.read_bytes()
+        return base64.b64encode(data).decode("utf-8")
+
     def send_images(
         self,
         image_paths: list[Path],
@@ -69,9 +83,8 @@ class KakaoMessenger:
     ) -> None:
         """이미지를 나에게 전송한다.
 
+        이미지 파일을 base64로 인코딩하여 텍스트 메시지에 포함한다.
         최대 첨부 수(_MAX_IMAGE_ATTACHMENTS)를 초과하면 배치로 나누어 전송한다.
-        피드 메시지 타입은 링크 필드가 필수이므로 텍스트 메시지로 폴백하고
-        이미지 경로 정보를 포함한다.
 
         Args:
             image_paths: 전송할 이미지 파일 경로 목록
@@ -90,12 +103,24 @@ class KakaoMessenger:
         ]
 
         for batch_index, batch in enumerate(batches, start=1):
-            paths_text = "\n".join(str(p) for p in batch)
             batch_caption = caption or ""
             if len(batches) > 1:
                 batch_caption = f"[{batch_index}/{len(batches)}] {batch_caption}".strip()
 
-            text_body = f"{batch_caption}\n{paths_text}".strip() if batch_caption else paths_text
+            # 이미지를 base64로 인코딩하여 전송
+            image_data_list: list[str] = []
+            for img_path in batch:
+                try:
+                    encoded = self._encode_image_base64(img_path)
+                    image_data_list.append(
+                        f"[image:{img_path.name}]\ndata:image/{img_path.suffix.lstrip('.')};base64,{encoded}"
+                    )
+                except FileNotFoundError:
+                    logger.warning("이미지 파일을 찾을 수 없습니다: %s", img_path)
+                    image_data_list.append(f"[image:{img_path.name}] (파일 없음)")
+
+            images_text = "\n".join(image_data_list)
+            text_body = f"{batch_caption}\n{images_text}".strip() if batch_caption else images_text
 
             try:
                 self._client.send_message_to_me(

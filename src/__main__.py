@@ -65,10 +65,17 @@ async def main() -> None:
     async with NaverCafeCrawler(config) as crawler:
 
         def poll_sync(board: Any) -> None:
-            """Poller(APScheduler)에서 호출할 sync 콜백."""
-            asyncio.get_event_loop().run_until_complete(
-                _poll_board(board, crawler, tracker, pipeline, config.cafe_url)
-            )
+            """Poller(APScheduler)에서 호출할 sync 콜백.
+
+            BackgroundScheduler 스레드에서 호출되므로 새 이벤트 루프를 생성한다.
+            """
+            loop = asyncio.new_event_loop()
+            try:
+                loop.run_until_complete(
+                    _poll_board(board, crawler, tracker, pipeline, config.cafe_url)
+                )
+            finally:
+                loop.close()
 
         poller = Poller.from_config(config, poll_func=poll_sync)
         poller.start()
