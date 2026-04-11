@@ -34,4 +34,4 @@ RUN playwright install chromium --with-deps
 
 COPY . .
 
-CMD ["python", "-m", "src.scheduler"]
+CMD ["python", "-m", "src"]

@@ -7,17 +7,20 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Union
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
 if TYPE_CHECKING:
-    from src.config import Config
+    from src.config import BoardConfig, Config
 
 logger = logging.getLogger(__name__)
 
 # 폴링 주기 기본값 (분)
 _DEFAULT_POLL_INTERVAL_MINUTES = 5
+
+# poll_func이 받을 수 있는 게시판 타입 (BoardConfig 또는 dict)
+BoardItem = Union["BoardConfig", dict[str, Any]]
 
 
 class Poller:
@@ -28,8 +31,8 @@ class Poller:
 
     def __init__(
         self,
-        boards: list[dict[str, Any]],
-        poll_func: Callable[[dict[str, Any]], None],
+        boards: list[Any],
+        poll_func: Callable[[Any], None],
         interval_minutes: int = _DEFAULT_POLL_INTERVAL_MINUTES,
         timezone: str = "Asia/Seoul",
         scheduler: BackgroundScheduler | None = None,
@@ -37,8 +40,8 @@ class Poller:
         """초기화.
 
         Args:
-            boards: 폴링할 게시판 설정 목록
-            poll_func: 게시판 1개를 처리하는 함수 (board 딕셔너리 수신)
+            boards: 폴링할 게시판 설정 목록 (BoardConfig 또는 dict)
+            poll_func: 게시판 1개를 처리하는 함수
             interval_minutes: 폴링 주기(분)
             timezone: 스케줄러 타임존
             scheduler: 외부 주입용 스케줄러 (테스트용)
@@ -53,30 +56,27 @@ class Poller:
     def from_config(
         cls,
         config: "Config",
-        poll_func: Callable[[dict[str, Any]], None],
+        poll_func: Callable[[Any], None],
         scheduler: BackgroundScheduler | None = None,
     ) -> "Poller":
         """Config 인스턴스에서 Poller를 생성한다.
 
         Args:
             config: 애플리케이션 설정
-            poll_func: 게시판 1개를 처리하는 함수
+            poll_func: 게시판 1개를 처리하는 함수 (BoardConfig 수신)
             scheduler: 외부 주입용 스케줄러 (테스트용)
 
         Returns:
             Poller 인스턴스
         """
-        # Config에서 초 단위로 저장된 경우 분으로 변환
-        interval_seconds = getattr(config, "poll_interval_seconds", None)
-        interval_minutes = getattr(config, "poll_interval_minutes", None)
+        # Config.poll_interval은 초 단위이므로 분으로 변환
+        interval_seconds = getattr(config, "poll_interval", None)
+        if interval_seconds is not None:
+            interval_minutes = max(1, interval_seconds // 60)
+        else:
+            interval_minutes = _DEFAULT_POLL_INTERVAL_MINUTES
 
-        if interval_minutes is None:
-            if interval_seconds is not None:
-                interval_minutes = max(1, interval_seconds // 60)
-            else:
-                interval_minutes = _DEFAULT_POLL_INTERVAL_MINUTES
-
-        boards = getattr(config, "boards", [])
+        boards = list(getattr(config, "boards", []))
         timezone = getattr(config, "timezone", "Asia/Seoul")
 
         return cls(
@@ -149,11 +149,10 @@ class Poller:
             try:
                 self._poll_func(board)
             except Exception as exc:
-                logger.error(
-                    "게시판 폴링 실패 (id=%s): %s",
-                    board.get("id", "unknown"),
-                    exc,
+                board_id = getattr(board, "id", None) or (
+                    board.get("id", "unknown") if isinstance(board, dict) else "unknown"
                 )
+                logger.error("게시판 폴링 실패 (id=%s): %s", board_id, exc)
 
         elapsed = time.monotonic() - started_at
         limit = self._interval_minutes * 60
