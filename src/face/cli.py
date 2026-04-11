@@ -12,7 +12,7 @@ from pathlib import Path
 from src.face.encoder import NoFaceDetectedError, register
 
 _DEFAULT_ENCODINGS_PATH = (
-    Path(__file__).resolve().parent.parent.parent / "data" / "faces" / "encodings.pkl"
+    Path(__file__).resolve().parent.parent.parent / "data" / "faces" / "encodings.json"
 )
 
 
