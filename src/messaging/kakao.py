@@ -52,16 +52,22 @@ class KakaoMessenger:
             raise RuntimeError(f"이미지 업로드 실패: {r.status_code} {r.text}")
         return r.json()["infos"]["original"]["url"]
 
+    @staticmethod
+    def _to_mobile_url(url: str) -> str:
+        """네이버 카페 URL을 모바일 URL로 변환한다."""
+        return url.replace("://cafe.naver.com/", "://m.cafe.naver.com/")
+
     def send_text(self, message: str, link_url: str = "https://cafe.naver.com/sewhakinder", button_label: str = "") -> None:
         """텍스트 메시지를 전송한다."""
+        mobile_url = self._to_mobile_url(link_url)
         template: dict = {
             "object_type": "text",
             "text": message[:2000],
-            "link": {"web_url": link_url, "mobile_web_url": link_url},
+            "link": {"web_url": link_url, "mobile_web_url": mobile_url},
         }
         if button_label:
             template["buttons"] = [
-                {"title": button_label, "link": {"web_url": link_url, "mobile_web_url": link_url}}
+                {"title": button_label, "link": {"web_url": link_url, "mobile_web_url": mobile_url}}
             ]
         self._send_template(template)
 
