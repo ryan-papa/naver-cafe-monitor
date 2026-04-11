@@ -14,14 +14,18 @@ from src.config import Config, load_config, _load_env_vars, _load_yaml
 _MINIMAL_RAW: dict = {
     "scheduler": {"poll_interval_seconds": 60, "timezone": "Asia/Seoul"},
     "cafe": {
-        "url": "https://cafe.naver.com/test",
+        "cafe_id": 31672965,
+        "cafe_url": "https://cafe.naver.com/test",
         "boards": [
             {"id": 1, "name": "자유게시판", "face_check": False},
-            {"id": 2, "name": "사진게시판", "face_check": True},
+            {"id": 2, "name": "사진게시판", "face_check": True, "menu_id": 13, "type": "image"},
         ],
     },
     "face": {"tolerance": 0.55, "reference_dir": "data/faces/"},
-    "notification": {"kakao": {"enabled": True, "target_id": "me"}},
+    "notification": {"kakao": {"enabled": True, "target_id": "me", "recipients": [
+        {"type": "self"},
+        {"type": "friend", "friend_uuid": "test-uuid"},
+    ]}},
     "summary": {"enabled": True, "model": "claude-3-5-haiku-20241022", "max_tokens": 300},
 }
 
@@ -56,9 +60,23 @@ class TestConfigLoading:
     def test_face_tolerance_parsed(self, cfg: Config) -> None:
         assert cfg.face.tolerance == pytest.approx(0.55)
 
+    def test_cafe_id_parsed(self, cfg: Config) -> None:
+        assert cfg.cafe_id == 31672965
+
+    def test_board_menu_id_parsed(self, cfg: Config) -> None:
+        assert cfg.boards[1].menu_id == 13
+        assert cfg.boards[1].board_type == "image"
+
     def test_notification_kakao_parsed(self, cfg: Config) -> None:
         assert cfg.notification.kakao.enabled is True
         assert cfg.notification.kakao.target_id == "me"
+
+    def test_recipients_parsed(self, cfg: Config) -> None:
+        recipients = cfg.notification.kakao.recipients
+        assert len(recipients) == 2
+        assert recipients[0].type == "self"
+        assert recipients[1].type == "friend"
+        assert recipients[1].friend_uuid == "test-uuid"
 
     def test_summary_parsed(self, cfg: Config) -> None:
         assert cfg.summary.enabled is True

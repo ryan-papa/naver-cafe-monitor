@@ -385,3 +385,32 @@ class TestPipelineRouting:
         mock_messenger.send_notice_summary.assert_called_once_with(
             title="공지", summary="AI 요약본"
         )
+
+    def test_notice_board_handler_sends_images(self) -> None:
+        """NoticeBoardHandler가 이미지를 얼굴 필터 없이 전송해야 한다."""
+        mock_messenger = MagicMock()
+        handler = NoticeBoardHandler(messenger=mock_messenger)
+
+        post = {
+            "title": "일정표",
+            "content": "4월 일정",
+            "image_urls": ["url1.jpg", "url2.jpg"],
+            "post_id": "99",
+        }
+        handler.handle(post)
+
+        mock_messenger.send_notice_summary.assert_called_once()
+        mock_messenger.send_images.assert_called_once_with(
+            ["url1.jpg", "url2.jpg"], caption="[공지] 일정표"
+        )
+
+    def test_notice_board_handler_no_images_no_send(self) -> None:
+        """이미지가 없으면 send_images를 호출하지 않아야 한다."""
+        mock_messenger = MagicMock()
+        handler = NoticeBoardHandler(messenger=mock_messenger)
+
+        post = {"title": "공지", "content": "텍스트만"}
+        handler.handle(post)
+
+        mock_messenger.send_notice_summary.assert_called_once()
+        mock_messenger.send_images.assert_not_called()
