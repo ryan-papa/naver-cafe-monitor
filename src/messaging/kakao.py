@@ -65,18 +65,42 @@ class KakaoMessenger:
             ]
         self._send_template(template)
 
-    def send_notice_summary(self, title: str, summary: str) -> None:
+    def _send_chunked(self, text: str, **kwargs) -> None:
+        """2000자 초과 시 분할 전송한다."""
+        _MAX = 1900  # 여유 확보
+        if len(text) <= _MAX:
+            self.send_text(text, **kwargs)
+            return
+        # 줄바꿈 기준으로 분할
+        chunks, current = [], ""
+        for line in text.split("\n"):
+            if len(current) + len(line) + 1 > _MAX:
+                chunks.append(current)
+                current = line
+            else:
+                current = f"{current}\n{line}" if current else line
+        if current:
+            chunks.append(current)
+        for i, chunk in enumerate(chunks):
+            label = f" ({i+1}/{len(chunks)})" if len(chunks) > 1 else ""
+            self.send_text(f"{chunk}{label}", **kwargs)
+
+    def send_notice_summary(self, title: str, summary: str, post_url: str = "") -> None:
         """공지 요약을 분할 전송한다. 전체 내용 + 일정 정리를 나눠서 전송."""
-        # [전체 내용 요약]과 [일정 정리]로 분리
         parts = summary.split("[일정 정리]")
 
         content_part = parts[0].strip()
         schedule_part = parts[1].strip() if len(parts) > 1 else ""
 
-        self.send_text(f"[세화유치원 공지]\n\n📋 {title}\n\n{content_part}")
+        self._send_chunked(f"[세화유치원 공지]\n\n📋 {title}\n\n{content_part}")
 
         if schedule_part:
-            self.send_text(f"[세화유치원 일정]\n\n📅 {title}\n\n{schedule_part}")
+            link = post_url or "https://cafe.naver.com/sewhakinder"
+            self._send_chunked(
+                f"[세화유치원 일정]\n\n📅 {title}\n\n{schedule_part}",
+                link_url=link,
+                button_label="카페에서 원문 보기",
+            )
 
     def send_matched_images(
         self, title: str, image_paths: list[Path], post_url: str

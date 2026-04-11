@@ -29,8 +29,10 @@ logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _CAFE_URL = "https://cafe.naver.com/f-e/cafes/31672965"
-_ALBUM_ID = "AMjg2hP8k5198eTgkM9kcQO_IGEQAoqo-3uGqo8GCnKjGzhIDkfEzfkjsv22_h_oBzyWyQl8NqcA"
-_ALBUM_SHARE_URL = "https://photos.google.com/album/AF1QipO6xY0TO1r6l9Qdp_bytBU-w0A5ZiRxLs_4KvYM"
+_PHOTO_ALBUM_ID = "AMjg2hP8k5198eTgkM9kcQO_IGEQAoqo-3uGqo8GCnKjGzhIDkfEzfkjsv22_h_oBzyWyQl8NqcA"
+_PHOTO_ALBUM_URL = "https://photos.google.com/album/AF1QipO6xY0TO1r6l9Qdp_bytBU-w0A5ZiRxLs_4KvYM"
+_NOTICE_ALBUM_ID = "AMjg2hO8NxElTPDPyohMs3DS72-H0y4OIGX1Pxsu_s-R-lKW73o2H9CAqUVgUHTT89nDwCTTGvfi"
+_NOTICE_ALBUM_URL = "https://photos.google.com/album/AF1QipNGmtFtsRkWf1VTrNEHXoX2_Heude7VxZ0jOsTM"
 
 
 def _filter_image_urls(urls: list[str]) -> list[str]:
@@ -137,13 +139,12 @@ async def _process_photo_board(
         # Google Photos 업로드
         tokens = gphotos.upload_images(paths)
         if tokens:
-            gphotos.add_to_album(_ALBUM_ID, tokens)
-            album_url = _ALBUM_SHARE_URL
+            gphotos.add_to_album(_PHOTO_ALBUM_ID, tokens)
             kakao.send_text(
                 f"[세화유치원 사진]\n\n"
                 f"📷 {title}\n"
                 f"사진 {len(tokens)}장 업로드 완료",
-                link_url=album_url,
+                link_url=_PHOTO_ALBUM_URL,
                 button_label="📷 앨범에서 보기",
             )
             logger.info("[사진] %d장 업로드 & 전송 완료", len(tokens))
@@ -154,9 +155,10 @@ async def _process_photo_board(
 
 
 async def _process_notice_board(
-    context, last_seen: dict, kakao: KakaoMessenger, summarizer: Summarizer,
+    context, last_seen: dict, kakao: KakaoMessenger,
+    summarizer: Summarizer, gphotos: GooglePhotosClient,
 ) -> None:
-    """공지사항(menus/6) 처리: 이미지 다운로드 → Claude 분석 → 카카오톡 요약."""
+    """공지사항(menus/6) 처리: 이미지 → 구글포토 + Claude 분석 → 카카오톡."""
     menu_key = "menus/6"
     last_id = int(last_seen.get(menu_key, 0))
     articles = await _fetch_new_articles(context, "6", last_id)
@@ -171,14 +173,22 @@ async def _process_notice_board(
     for article in articles:
         pid = article["post_id"]
         title = article["title"]
+        post_url = article["url"]
         logger.info("[공지] 새 게시물: #%d %s", pid, title)
 
-        raw_urls = await _fetch_post_images(context, article["url"])
+        raw_urls = await _fetch_post_images(context, post_url)
         image_urls = _filter_image_urls(raw_urls)
 
         if image_urls:
             paths = await downloader.download_all(str(pid), image_urls)
-            # 각 이미지를 Claude로 분석
+
+            # 구글 포토 공지 앨범에 업로드
+            tokens = gphotos.upload_images(paths)
+            if tokens:
+                gphotos.add_to_album(_NOTICE_ALBUM_ID, tokens)
+                logger.info("[공지] 이미지 %d장 구글 포토 업로드", len(tokens))
+
+            # Claude 분석
             summaries = []
             for path in paths:
                 try:
@@ -189,7 +199,7 @@ async def _process_notice_board(
 
             if summaries:
                 combined = "\n\n---\n\n".join(summaries)
-                kakao.send_notice_summary(title, combined)
+                kakao.send_notice_summary(title, combined, post_url=post_url)
                 logger.info("[공지] 요약 전송 완료: %s", title)
         else:
             logger.info("[공지] 이미지 없는 공지, 제목만 전송")
@@ -237,7 +247,7 @@ async def run() -> None:
 
         try:
             await _process_photo_board(context, last_seen, kakao, gphotos)
-            await _process_notice_board(context, last_seen, kakao, summarizer)
+            await _process_notice_board(context, last_seen, kakao, summarizer, gphotos)
         finally:
             _save_last_seen(last_seen)
             await context.close()
