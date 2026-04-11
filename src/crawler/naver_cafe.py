@@ -13,6 +13,7 @@ from playwright.async_api import async_playwright
 
 from src.crawler.parser import PostDetail, PostSummary, parse_post_detail, parse_post_list
 from src.crawler.session import build_context, is_logged_in, login, restore_cookies, save_cookies
+from src.crawler.urls import build_board_url
 
 if TYPE_CHECKING:
     from src.config import Config
@@ -62,7 +63,7 @@ class NaverCafeCrawler:
     # ── 로그인 보장 ──────────────────────────────────────────────────────────
 
     async def _ensure_logged_in(self) -> None:
-        """쿠키 복원 → 로그인 상태 확인 → 필요 시 ID/PW 로그인."""
+        """쿠키 복원 -> 로그인 상태 확인 -> 필요 시 ID/PW 로그인."""
         assert self._context is not None
 
         cookie_restored = await restore_cookies(self._context, self._cookie_path)
@@ -79,15 +80,7 @@ class NaverCafeCrawler:
     # ── 게시판 목록 수집 ─────────────────────────────────────────────────────
 
     async def fetch_post_list(self, board_url: str, board_type: str) -> list[PostSummary]:
-        """지정 게시판 URL에서 게시물 목록을 수집하여 반환한다.
-
-        Args:
-            board_url:  크롤링할 게시판 URL
-            board_type: 게시판 유형 문자열 (예: "자유게시판", "사진게시판")
-
-        Returns:
-            PostSummary 리스트
-        """
+        """지정 게시판 URL에서 게시물 목록을 수집하여 반환한다."""
         assert self._context is not None
         page = await self._context.new_page()
         try:
@@ -102,15 +95,7 @@ class NaverCafeCrawler:
     # ── 게시물 상세 수집 ─────────────────────────────────────────────────────
 
     async def fetch_post_detail(self, post_url: str, post_id: str) -> PostDetail:
-        """게시물 상세 페이지에서 본문 텍스트와 이미지 URL 목록을 반환한다.
-
-        Args:
-            post_url: 게시물 상세 URL
-            post_id:  게시물 식별자
-
-        Returns:
-            PostDetail (body_text, image_urls 포함)
-        """
+        """게시물 상세 페이지에서 본문 텍스트와 이미지 URL 목록을 반환한다."""
         assert self._context is not None
         page = await self._context.new_page()
         try:
@@ -128,10 +113,19 @@ class NaverCafeCrawler:
 
     async def fetch_all_boards(self) -> list[PostSummary]:
         """Config에 설정된 모든 게시판을 순회하며 게시물 목록을 수집한다."""
-        cafe_url = self._config.cafe_url.rstrip("/")
+        cafe_id = self._config.cafe_id
         all_posts: list[PostSummary] = []
         for board in self._config.boards:
-            board_url = f"{cafe_url}?iframe_url=/ArticleList.nhn%3Fsearch.clubid=0%26search.menuid={board.id}"
+            if board.url:
+                board_url = board.url
+            elif cafe_id and board.menu_id:
+                board_url = build_board_url(cafe_id, board.menu_id)
+            else:
+                cafe_url = self._config.cafe_url.rstrip("/")
+                board_url = (
+                    f"{cafe_url}?iframe_url=/ArticleList.nhn"
+                    f"%3Fsearch.clubid=0%26search.menuid={board.id}"
+                )
             posts = await self.fetch_post_list(board_url, board.name)
             all_posts.extend(posts)
         return all_posts

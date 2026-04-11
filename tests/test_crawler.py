@@ -34,10 +34,11 @@ _VALID_ENV: dict[str, str] = {
 _MINIMAL_RAW: dict = {
     "scheduler": {"poll_interval_seconds": 60, "timezone": "Asia/Seoul"},
     "cafe": {
-        "url": "https://cafe.naver.com/testcafe",
+        "cafe_id": 31672965,
+        "cafe_url": "https://cafe.naver.com/testcafe",
         "boards": [
             {"id": 1, "name": "자유게시판", "face_check": False},
-            {"id": 2, "name": "사진게시판", "face_check": True},
+            {"id": 2, "name": "사진게시판", "face_check": True, "menu_id": 13, "type": "image"},
         ],
     },
     "face": {"tolerance": 0.55, "reference_dir": "data/faces/"},
@@ -128,6 +129,18 @@ class TestBuildUrl:
 
     def test_empty_string_prepends_base(self) -> None:
         assert _build_url("") == "https://cafe.naver.com"
+
+
+class TestBuildBoardUrl:
+    def test_generates_correct_url(self) -> None:
+        from src.crawler.urls import build_board_url
+        result = build_board_url(31672965, 13)
+        assert result == "https://cafe.naver.com/f-e/cafes/31672965/menus/13"
+
+    def test_different_ids(self) -> None:
+        from src.crawler.urls import build_board_url
+        result = build_board_url(12345, 6)
+        assert result == "https://cafe.naver.com/f-e/cafes/12345/menus/6"
 
 
 # ── parse_post_list 테스트 ────────────────────────────────────────────────────

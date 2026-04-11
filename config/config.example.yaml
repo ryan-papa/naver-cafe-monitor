@@ -3,14 +3,19 @@ scheduler:
   timezone: "Asia/Seoul"
 
 cafe:
-  url: "https://cafe.naver.com/YOUR_CAFE_ID"
+  cafe_id: 31672965
+  cafe_url: "https://cafe.naver.com/sewhakinder"
   boards:
-    - id: 1
-      name: "자유게시판"
+    - name: "사진게시판"
+      menu_id: 13
+      type: "image"
+      url: "https://cafe.naver.com/f-e/cafes/31672965/menus/13"
+      face_check: true
+    - name: "공지사항"
+      menu_id: 6
+      type: "notice"
+      url: "https://cafe.naver.com/f-e/cafes/31672965/menus/6"
       face_check: false
-    - id: 2
-      name: "사진게시판"
-      face_check: true          # 얼굴 인식 활성화
 
 face:
   tolerance: 0.55               # 유사도 임계값 (낮을수록 엄격)
@@ -19,7 +24,10 @@ face:
 notification:
   kakao:
     enabled: true
-    target_id: "me"             # "me" 또는 친구의 UUID
+    recipients:
+      - type: "self"            # 본인에게 전송
+      - type: "friend"          # 배우자에게 전송
+        friend_uuid: "YOUR_FRIEND_UUID"
 
 summary:
   enabled: true

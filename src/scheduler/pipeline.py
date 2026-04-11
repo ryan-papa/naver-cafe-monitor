@@ -1,8 +1,4 @@
-"""플러그인 파이프라인 모듈.
-
-BoardHandler 프로토콜을 구현하면 새 게시판 유형을 손쉽게 추가할 수 있다.
-Pipeline은 게시판 유형에 따라 적절한 핸들러를 선택하여 실행한다.
-"""
+"""플러그인 파이프라인 모듈."""
 from __future__ import annotations
 
 import asyncio
@@ -78,31 +74,69 @@ class ImageBoardHandler:
 
 
 class NoticeBoardHandler:
-    """공지 게시판 핸들러: 텍스트 추출 → AI 요약 → 카카오 전송."""
+    """공지 게시판 핸들러: 텍스트 요약 + 이미지 전송 (얼굴 필터 없음)."""
 
     def __init__(
         self,
         summarizer: Any | None = None,
         messenger: Any | None = None,
+        image_downloader: Any | None = None,
     ) -> None:
         self._summarizer = summarizer
         self._messenger = messenger
+        self._downloader = image_downloader
+
+    def _resolve_images(self, post_detail: dict[str, Any]) -> tuple[list[str], str, str]:
+        """이미지 URL, post_id, title을 추출한다."""
+        return (
+            post_detail.get("image_urls", []),
+            post_detail.get("post_id", "unknown"),
+            post_detail.get("title", ""),
+        )
+
+    def _send_images(self, post_detail: dict[str, Any]) -> None:
+        image_urls, post_id, title = self._resolve_images(post_detail)
+        if not image_urls or self._messenger is None:
+            return
+        if self._downloader is not None:
+            paths = asyncio.get_event_loop().run_until_complete(
+                self._downloader.download_all(post_id=post_id, image_urls=image_urls)
+            )
+        else:
+            paths = image_urls
+        self._messenger.send_images(paths, caption=f"[공지] {title}")
+
+    async def _send_images_async(self, post_detail: dict[str, Any]) -> None:
+        image_urls, post_id, title = self._resolve_images(post_detail)
+        if not image_urls or self._messenger is None:
+            return
+        if self._downloader is not None:
+            paths = await self._downloader.download_all(
+                post_id=post_id, image_urls=image_urls
+            )
+        else:
+            paths = image_urls
+        self._messenger.send_images(paths, caption=f"[공지] {title}")
 
     def handle(self, post_detail: dict[str, Any]) -> None:
         """공지 게시글을 처리한다."""
-        title: str = post_detail.get("title", "")
-        content: str = post_detail.get("content", "")
+        title, content = post_detail.get("title", ""), post_detail.get("content", "")
         logger.info("공지 게시판 처리 시작: %s", title)
-
-        if self._summarizer is not None:
-            summary = self._summarizer.summarize(content)
-        else:
-            summary = content
-
+        summary = self._summarizer.summarize(content) if self._summarizer else content
         if self._messenger is not None:
             self._messenger.send_notice_summary(title=title, summary=summary)
-
+        self._send_images(post_detail)
         logger.info("공지 게시판 처리 완료: %s", title)
+
+    async def handle_async(self, post_detail: dict[str, Any]) -> None:
+        """공지 게시글을 비동기 처리한다."""
+        title, content = post_detail.get("title", ""), post_detail.get("content", "")
+        logger.info("공지 게시판 처리 시작(async): %s", title)
+        summary = self._summarizer.summarize(content) if self._summarizer else content
+        if self._messenger is not None:
+            self._messenger.send_notice_summary(title=title, summary=summary)
+        await self._send_images_async(post_detail)
+        logger.info("공지 게시판 처리 완료(async): %s", title)
 
 
 class Pipeline:
@@ -122,11 +156,7 @@ class Pipeline:
         self._default_handler = handler
 
     def process(self, board_type: str, post_detail: dict[str, Any]) -> None:
-        """게시글을 적절한 핸들러로 처리한다.
-
-        Raises:
-            ValueError: 등록된 핸들러가 없고 기본 핸들러도 없을 때
-        """
+        """게시글을 적절한 핸들러로 처리한다."""
         handler = self._handlers.get(board_type) or self._default_handler
         if handler is None:
             raise ValueError(f"핸들러 없음: {board_type!r}")
@@ -134,10 +164,7 @@ class Pipeline:
         handler.handle(post_detail)
 
     async def process_async(self, board_type: str, post_detail: dict[str, Any]) -> None:
-        """게시글을 async 핸들러로 처리한다.
-
-        핸들러에 handle_async가 있으면 사용하고, 없으면 handle()을 호출한다.
-        """
+        """게시글을 async 핸들러로 처리한다."""
         handler = self._handlers.get(board_type) or self._default_handler
         if handler is None:
             raise ValueError(f"핸들러 없음: {board_type!r}")
@@ -149,28 +176,19 @@ class Pipeline:
 
 
 def create_pipeline(config: "Config") -> Pipeline:
-    """Config로부터 실제 모듈을 주입하여 Pipeline을 구성하는 팩토리 함수."""
+    """Config로부터 실제 모듈을 주입하여 Pipeline을 구성한다."""
     from src.crawler.image_downloader import ImageDownloader
     from src.face.filter import FaceFilter
     from src.messaging.kakao import KakaoMessenger
     from src.notice.summarizer import Summarizer
 
     messenger = KakaoMessenger.from_config(config)
-    downloader = ImageDownloader()
-    face_filter = FaceFilter.from_config(config)
-    summarizer = Summarizer.from_config(config)
-
+    dl = ImageDownloader()
     pipeline = Pipeline()
-    pipeline.register(
-        "image",
-        ImageBoardHandler(
-            image_downloader=downloader,
-            face_filter=face_filter,
-            messenger=messenger,
-        ),
-    )
-    pipeline.register(
-        "notice",
-        NoticeBoardHandler(summarizer=summarizer, messenger=messenger),
-    )
+    pipeline.register("image", ImageBoardHandler(
+        image_downloader=dl, face_filter=FaceFilter.from_config(config), messenger=messenger,
+    ))
+    pipeline.register("notice", NoticeBoardHandler(
+        summarizer=Summarizer.from_config(config), messenger=messenger, image_downloader=dl,
+    ))
     return pipeline

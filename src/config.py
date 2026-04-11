@@ -1,46 +1,46 @@
-"""설정 관리 모듈.
-
-config.yaml (없으면 config.example.yaml 폴백) + .env 기반으로 설정을 로딩한다.
-"""
+"""설정 관리 모듈."""
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-
 import yaml
 from dotenv import load_dotenv
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _CONFIG_DIR = _PROJECT_ROOT / "config"
-
 _REQUIRED_ENV_VARS = ("NAVER_ID", "NAVER_PW", "KAKAO_TOKEN", "ANTHROPIC_API_KEY")
 
+
+@dataclass
+class RecipientConfig:
+    type: str = "self"
+    friend_uuid: str = ""
 
 @dataclass
 class BoardConfig:
     id: int
     name: str
     face_check: bool = False
-
+    menu_id: int = 0
+    board_type: str = ""
+    url: str = ""
 
 @dataclass
 class FaceConfig:
     tolerance: float = 0.55
     reference_dir: str = "data/faces/"
 
-
 @dataclass
 class KakaoConfig:
     enabled: bool = True
     target_id: str = "me"
-
+    recipients: list[RecipientConfig] = field(default_factory=list)
 
 @dataclass
 class NotificationConfig:
     kakao: KakaoConfig = field(default_factory=KakaoConfig)
-
 
 @dataclass
 class SummaryConfig:
@@ -59,12 +59,16 @@ class Config:
         self._polling_enabled: bool = True
 
         cafe = raw.get("cafe", {})
-        self._cafe_url: str = cafe.get("url", "")
+        self._cafe_id: int = int(cafe.get("cafe_id", 0))
+        self._cafe_url: str = cafe.get("cafe_url", cafe.get("url", ""))
         self._boards: list[BoardConfig] = [
             BoardConfig(
-                id=b["id"],
+                id=b.get("id", b.get("menu_id", 0)),
                 name=b["name"],
                 face_check=b.get("face_check", False),
+                menu_id=int(b.get("menu_id", b.get("id", 0))),
+                board_type=b.get("type", ""),
+                url=b.get("url", ""),
             )
             for b in cafe.get("boards", [])
         ]
@@ -77,10 +81,19 @@ class Config:
 
         notif_raw = raw.get("notification", {})
         kakao_raw = notif_raw.get("kakao", {})
+        recipients_raw = kakao_raw.get("recipients", [])
+        recipients = [
+            RecipientConfig(
+                type=r.get("type", "self"),
+                friend_uuid=r.get("friend_uuid", ""),
+            )
+            for r in recipients_raw
+        ]
         self._notification = NotificationConfig(
             kakao=KakaoConfig(
                 enabled=bool(kakao_raw.get("enabled", True)),
                 target_id=str(kakao_raw.get("target_id", "me")),
+                recipients=recipients,
             )
         )
 
@@ -98,100 +111,55 @@ class Config:
             retry_raw.get("exponential_backoff", False)
         )
 
-        # 인증정보 — 환경변수에서만 로딩, 절대 하드코딩 금지
         self._naver_id: str = env_vars["NAVER_ID"]
         self._naver_pw: str = env_vars["NAVER_PW"]
         self._kakao_token: str = env_vars["KAKAO_TOKEN"]
         self._anthropic_api_key: str = env_vars["ANTHROPIC_API_KEY"]
 
-    # ── 스케줄러 ──────────────────────────────────────────────────────────────
-
+    # ── 프로퍼티: 스케줄러 ─────────────────────────────────────────────────────
     @property
-    def poll_interval(self) -> int:
-        return self._poll_interval
-
+    def poll_interval(self) -> int: return self._poll_interval
     @property
-    def timezone(self) -> str:
-        return self._timezone
-
+    def timezone(self) -> str: return self._timezone
     @property
-    def polling_enabled(self) -> bool:
-        return self._polling_enabled
+    def polling_enabled(self) -> bool: return self._polling_enabled
 
-    # ── 폴링 ON/OFF 런타임 토글 ───────────────────────────────────────────────
-
-    def enable_polling(self) -> None:
-        """폴링을 활성화한다."""
-        self._polling_enabled = True
-
-    def disable_polling(self) -> None:
-        """폴링을 비활성화한다."""
-        self._polling_enabled = False
+    def enable_polling(self) -> None: self._polling_enabled = True
+    def disable_polling(self) -> None: self._polling_enabled = False
 
     def toggle_polling(self) -> bool:
-        """폴링 상태를 반전하고 변경 후 상태를 반환한다."""
         self._polling_enabled = not self._polling_enabled
         return self._polling_enabled
 
-    # ── 카페 ─────────────────────────────────────────────────────────────────
-
+    # ── 프로퍼티: 카페 / 얼굴 / 알림 / 요약 / 재시도 ─────────────────────────
     @property
-    def cafe_url(self) -> str:
-        return self._cafe_url
-
+    def cafe_id(self) -> int: return self._cafe_id
     @property
-    def boards(self) -> list[BoardConfig]:
-        return self._boards
-
-    # ── 얼굴 인식 ─────────────────────────────────────────────────────────────
-
+    def cafe_url(self) -> str: return self._cafe_url
     @property
-    def face(self) -> FaceConfig:
-        return self._face
-
-    # ── 알림 ─────────────────────────────────────────────────────────────────
-
+    def boards(self) -> list[BoardConfig]: return self._boards
     @property
-    def notification(self) -> NotificationConfig:
-        return self._notification
-
-    # ── 요약 ─────────────────────────────────────────────────────────────────
-
+    def face(self) -> FaceConfig: return self._face
     @property
-    def summary(self) -> SummaryConfig:
-        return self._summary
-
-    # ── 재시도 ───────────────────────────────────────────────────────────────
-
+    def notification(self) -> NotificationConfig: return self._notification
     @property
-    def retry_max(self) -> int:
-        return self._retry_max
-
+    def summary(self) -> SummaryConfig: return self._summary
     @property
-    def retry_delay(self) -> float:
-        return self._retry_delay
-
+    def retry_max(self) -> int: return self._retry_max
     @property
-    def retry_exponential_backoff(self) -> bool:
-        return self._retry_exponential_backoff
-
-    # ── 인증정보 ──────────────────────────────────────────────────────────────
-
+    def retry_delay(self) -> float: return self._retry_delay
     @property
-    def naver_id(self) -> str:
-        return self._naver_id
+    def retry_exponential_backoff(self) -> bool: return self._retry_exponential_backoff
 
+    # ── 프로퍼티: 인증정보 ───────────────────────────────────────────────────
     @property
-    def naver_pw(self) -> str:
-        return self._naver_pw
-
+    def naver_id(self) -> str: return self._naver_id
     @property
-    def kakao_token(self) -> str:
-        return self._kakao_token
-
+    def naver_pw(self) -> str: return self._naver_pw
     @property
-    def anthropic_api_key(self) -> str:
-        return self._anthropic_api_key
+    def kakao_token(self) -> str: return self._kakao_token
+    @property
+    def anthropic_api_key(self) -> str: return self._anthropic_api_key
 
 
 def _load_yaml(config_dir: Path) -> dict[str, Any]:
@@ -226,16 +194,6 @@ def _load_env_vars(env_file: Path | None = None) -> dict[str, str]:
     return {key: os.environ[key] for key in _REQUIRED_ENV_VARS}
 
 
-def load_config(
-    config_dir: Path | None = None,
-    env_file: Path | None = None,
-) -> Config:
-    """설정을 로딩하여 Config 인스턴스를 반환한다.
-
-    Args:
-        config_dir: yaml 파일이 위치한 디렉터리 (기본값: <project_root>/config)
-        env_file:   .env 파일 경로 (기본값: <project_root>/.env)
-    """
-    raw = _load_yaml(config_dir or _CONFIG_DIR)
-    env_vars = _load_env_vars(env_file)
-    return Config(raw, env_vars)
+def load_config(config_dir: Path | None = None, env_file: Path | None = None) -> Config:
+    """설정을 로딩하여 Config 인스턴스를 반환한다."""
+    return Config(_load_yaml(config_dir or _CONFIG_DIR), _load_env_vars(env_file))
