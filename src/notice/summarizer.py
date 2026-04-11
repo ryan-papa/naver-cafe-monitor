@@ -97,6 +97,26 @@ class Summarizer:
             return ""
         return self._run_cli(_TEXT_PROMPT.format(text=text), timeout=60)
 
+    def summarize_short(self, text: str) -> str:
+        """전달사항 텍스트를 간단히 요약한다. sonnet 사용."""
+        if not text.strip():
+            return ""
+        prompt = (
+            "유치원 게시글의 전달사항이야. 핵심만 간결하게 정리해줘.\n"
+            "마크다운 사용 금지. 카카오톡용 순수 텍스트.\n"
+            "• 불릿으로 항목별 정리.\n"
+            f"---\n{text}"
+        )
+        cmd = [self._claude_path, "-p", prompt, "--model", "sonnet"]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if result.returncode != 0:
+                logger.warning("전달사항 요약 실패, 원문 사용")
+                return text[:300]
+            return result.stdout.strip()
+        except subprocess.TimeoutExpired:
+            return text[:300]
+
     def _split_image(self, image_path: Path, parts: int = 2) -> list[Path]:
         """이미지를 세로로 분할한다."""
         img = Image.open(image_path)

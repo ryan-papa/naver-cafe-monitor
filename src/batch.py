@@ -110,7 +110,8 @@ async def _fetch_post_detail(context, post_url: str) -> dict:
 
 
 async def _process_photo_board(
-    context, last_seen: dict, kakao: KakaoMessenger, gphotos: GooglePhotosClient,
+    context, last_seen: dict, kakao: KakaoMessenger,
+    gphotos: GooglePhotosClient, summarizer: Summarizer,
 ) -> None:
     """사진 게시판(menus/13) 처리: 이미지 다운로드 → Google Photos → 카카오톡."""
     menu_key = "menus/13"
@@ -151,8 +152,7 @@ async def _process_photo_board(
             # 메시지 구성: 사진 알림 + 전달사항 (있으면)
             msg = f"[세화유치원 사진]\n\n📷 {title}\n사진 {len(tokens)}장 업로드 완료"
             if body_text:
-                # 간단 요약 (긴 경우 잘라서)
-                notice = body_text[:500]
+                notice = summarizer.summarize_short(body_text)
                 msg += f"\n\n📝 전달사항:\n{notice}"
 
             kakao.send_text(
@@ -259,7 +259,7 @@ async def run() -> None:
             sys.exit(1)
 
         try:
-            await _process_photo_board(context, last_seen, kakao, gphotos)
+            await _process_photo_board(context, last_seen, kakao, gphotos, summarizer)
             await _process_notice_board(context, last_seen, kakao, summarizer, gphotos)
         finally:
             _save_last_seen(last_seen)
