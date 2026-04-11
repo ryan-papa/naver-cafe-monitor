@@ -1,0 +1,256 @@
+"""1회 실행 배치 스크립트.
+
+cron으로 30분마다 호출되어 새 게시물을 확인하고 처리한다.
+- 사진 게시판(menus/13): 이미지 다운로드 → Google Photos 업로드 → 카카오톡 링크 전송
+- 공지사항(menus/6): 이미지 다운로드 → Claude CLI 분석 → 카카오톡 요약 전송
+
+실행: python -m src.batch
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import re
+import sys
+from pathlib import Path
+
+from playwright.async_api import async_playwright
+
+from src.config import load_config
+from src.crawler.image_downloader import ImageDownloader
+from src.crawler.post_tracker import JsonFileStore
+from src.crawler.session import build_context, restore_cookies
+from src.messaging.kakao import KakaoMessenger
+from src.notice.summarizer import Summarizer
+from src.storage.google_photos import GooglePhotosClient
+
+logger = logging.getLogger(__name__)
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_CAFE_URL = "https://cafe.naver.com/f-e/cafes/31672965"
+_ALBUM_ID = "AMjg2hP8k5198eTgkM9kcQO_IGEQAoqo-3uGqo8GCnKjGzhIDkfEzfkjsv22_h_oBzyWyQl8NqcA"
+
+
+def _filter_image_urls(urls: list[str]) -> list[str]:
+    """phinf.pstatic.net + JPEG 이미지만 필터링, ?이전까지."""
+    filtered = []
+    for url in urls:
+        if "phinf.pstatic.net" not in url:
+            continue
+        if "JPEG" not in url.upper():
+            continue
+        clean = url.split("?")[0]
+        filtered.append(clean)
+    return filtered
+
+
+async def _fetch_new_articles(
+    context, menu_id: str, last_seen_id: int,
+) -> list[dict]:
+    """게시판에서 last_seen 이후의 새 게시물을 수집한다."""
+    page = await context.new_page()
+    try:
+        board_url = f"{_CAFE_URL}/menus/{menu_id}"
+        await page.goto(board_url, wait_until="domcontentloaded")
+        await page.wait_for_timeout(2000)
+
+        # cafe_main iframe 접근
+        frame = page.frame("cafe_main") or page.main_frame
+        links = await frame.query_selector_all("a[class*=article]")
+
+        articles = []
+        for link in links:
+            href = await link.get_attribute("href") or ""
+            m = re.search(r"/(\d+)(?:\?|$)", href)
+            if not m:
+                continue
+            post_id = int(m.group(1))
+            if post_id <= last_seen_id:
+                continue
+            title = (await link.inner_text()).strip()
+            full_url = f"https://cafe.naver.com{href}" if href.startswith("/") else href
+            articles.append({"post_id": post_id, "title": title, "url": full_url})
+
+        articles.sort(key=lambda a: a["post_id"])
+        return articles
+    finally:
+        await page.close()
+
+
+async def _fetch_post_images(context, post_url: str) -> list[str]:
+    """게시물 상세에서 이미지 URL을 수집한다."""
+    page = await context.new_page()
+    try:
+        await page.goto(post_url, wait_until="domcontentloaded")
+        await page.wait_for_timeout(2000)
+
+        frame = page.frame("cafe_main") or page.main_frame
+        body = await frame.query_selector(".se-main-container, #postContent, .article-viewer")
+        if not body:
+            return []
+
+        img_els = await body.query_selector_all("img")
+        urls = []
+        for img in img_els:
+            src = await img.get_attribute("src") or await img.get_attribute("data-src") or ""
+            if src.strip() and not src.startswith("data:"):
+                urls.append(src.strip())
+        return urls
+    finally:
+        await page.close()
+
+
+async def _process_photo_board(
+    context, last_seen: dict, kakao: KakaoMessenger, gphotos: GooglePhotosClient,
+) -> None:
+    """사진 게시판(menus/13) 처리: 이미지 다운로드 → Google Photos → 카카오톡."""
+    menu_key = "menus/13"
+    last_id = int(last_seen.get(menu_key, 0))
+    articles = await _fetch_new_articles(context, "13", last_id)
+
+    if not articles:
+        logger.info("[사진] 새 게시물 없음")
+        return
+
+    downloader = ImageDownloader()
+    max_id = last_id
+
+    for article in articles:
+        pid = article["post_id"]
+        title = article["title"]
+        logger.info("[사진] 새 게시물: #%d %s", pid, title)
+
+        raw_urls = await _fetch_post_images(context, article["url"])
+        image_urls = _filter_image_urls(raw_urls)
+        if not image_urls:
+            logger.info("[사진] 이미지 없음, 스킵")
+            max_id = max(max_id, pid)
+            continue
+
+        paths = await downloader.download_all(str(pid), image_urls)
+        if not paths:
+            max_id = max(max_id, pid)
+            continue
+
+        # Google Photos 업로드
+        tokens = gphotos.upload_images(paths)
+        if tokens:
+            gphotos.add_to_album(_ALBUM_ID, tokens)
+            album_url = f"https://photos.google.com/album/{_ALBUM_ID}"
+            kakao.send_text(
+                f"[세화유치원 사진]\n\n"
+                f"📷 {title}\n"
+                f"사진 {len(tokens)}장 업로드 완료\n\n"
+                f"앨범: {album_url}"
+            )
+            logger.info("[사진] %d장 업로드 & 전송 완료", len(tokens))
+
+        max_id = max(max_id, pid)
+
+    last_seen[menu_key] = max_id
+
+
+async def _process_notice_board(
+    context, last_seen: dict, kakao: KakaoMessenger, summarizer: Summarizer,
+) -> None:
+    """공지사항(menus/6) 처리: 이미지 다운로드 → Claude 분석 → 카카오톡 요약."""
+    menu_key = "menus/6"
+    last_id = int(last_seen.get(menu_key, 0))
+    articles = await _fetch_new_articles(context, "6", last_id)
+
+    if not articles:
+        logger.info("[공지] 새 게시물 없음")
+        return
+
+    downloader = ImageDownloader()
+    max_id = last_id
+
+    for article in articles:
+        pid = article["post_id"]
+        title = article["title"]
+        logger.info("[공지] 새 게시물: #%d %s", pid, title)
+
+        raw_urls = await _fetch_post_images(context, article["url"])
+        image_urls = _filter_image_urls(raw_urls)
+
+        if image_urls:
+            paths = await downloader.download_all(str(pid), image_urls)
+            # 각 이미지를 Claude로 분석
+            summaries = []
+            for path in paths:
+                try:
+                    result = summarizer.analyze_image(path)
+                    summaries.append(result)
+                except Exception as e:
+                    logger.warning("[공지] 이미지 분석 실패: %s — %s", path.name, e)
+
+            if summaries:
+                combined = "\n\n---\n\n".join(summaries)
+                kakao.send_notice_summary(title, combined)
+                logger.info("[공지] 요약 전송 완료: %s", title)
+        else:
+            logger.info("[공지] 이미지 없는 공지, 제목만 전송")
+            kakao.send_text(f"[세화유치원 공지]\n\n📋 {title}")
+
+        max_id = max(max_id, pid)
+
+    last_seen[menu_key] = max_id
+
+
+def _load_last_seen() -> dict:
+    """last_seen.json을 로딩한다."""
+    store = JsonFileStore()
+    data = store.load()
+    return {k: int(v) for k, v in data.items()}
+
+
+def _save_last_seen(data: dict) -> None:
+    """last_seen.json을 저장한다."""
+    store = JsonFileStore()
+    store.save({k: str(v) for k, v in data.items()})
+
+
+async def run() -> None:
+    """배치 메인 로직."""
+    config = load_config()
+
+    # Google Photos 토큰 로딩 (자동 갱신 포함)
+    gphotos = GooglePhotosClient()
+
+    # 카카오 & 요약 초기화
+    kakao = KakaoMessenger.from_config(config)
+    summarizer = Summarizer.from_config(config)
+
+    # last_seen 로딩
+    last_seen = _load_last_seen()
+
+    async with async_playwright() as pw:
+        context = await build_context(pw, headless=True)
+        restored = await restore_cookies(context)
+        if not restored:
+            logger.error("쿠키 없음. 먼저 수동 로그인 필요: python -m src.crawler.login")
+            await context.close()
+            sys.exit(1)
+
+        try:
+            await _process_photo_board(context, last_seen, kakao, gphotos)
+            await _process_notice_board(context, last_seen, kakao, summarizer)
+        finally:
+            _save_last_seen(last_seen)
+            await context.close()
+
+    logger.info("배치 완료")
+
+
+def main() -> None:
+    """엔트리포인트."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+    asyncio.run(run())
+
+
+if __name__ == "__main__":
+    main()
