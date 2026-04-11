@@ -1,6 +1,6 @@
 """얼굴 인코딩 등록/로딩 모듈.
 
-face_recognition 라이브러리를 사용해 기준 이미지를 인코딩하고
+DeepFace 라이브러리(Facenet512 모델)를 사용해 기준 이미지를 인코딩하고
 data/faces/encodings.json에 저장한다.
 
 보안 강화를 위해 pickle 대신 JSON 직렬화를 사용한다.
@@ -12,11 +12,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import face_recognition
+from deepface import DeepFace
 import numpy as np
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _DEFAULT_ENCODINGS_PATH = _PROJECT_ROOT / "data" / "faces" / "encodings.json"
+
+_MODEL_NAME = "Facenet512"
 
 
 @dataclass
@@ -67,13 +69,23 @@ def register(
 
     save_path = encodings_path or _DEFAULT_ENCODINGS_PATH
 
-    image = face_recognition.load_image_file(str(image_path))
-    encodings = face_recognition.face_encodings(image)
+    try:
+        representations = DeepFace.represent(
+            img_path=str(image_path),
+            model_name=_MODEL_NAME,
+            enforce_detection=True,
+        )
+    except ValueError as exc:
+        raise NoFaceDetectedError(
+            f"이미지에서 얼굴을 검출하지 못했습니다: {image_path}"
+        ) from exc
 
-    if not encodings:
+    if not representations:
         raise NoFaceDetectedError(
             f"이미지에서 얼굴을 검출하지 못했습니다: {image_path}"
         )
+
+    encodings = [np.array(r["embedding"], dtype=np.float64) for r in representations]
 
     store = load_encodings(save_path)
     for enc in encodings:
@@ -81,7 +93,6 @@ def register(
 
     save_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # JSON 직렬화: numpy array를 리스트로 변환하여 저장
     serializable = [
         {"label": e["label"], "encoding": _encoding_to_list(e["encoding"])}
         for e in store.entries
