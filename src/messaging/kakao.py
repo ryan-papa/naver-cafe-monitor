@@ -52,13 +52,18 @@ class KakaoMessenger:
             raise RuntimeError(f"이미지 업로드 실패: {r.status_code} {r.text}")
         return r.json()["infos"]["original"]["url"]
 
-    def send_text(self, message: str, link_url: str = "https://cafe.naver.com/sewhakinder") -> None:
+    def send_text(self, message: str, link_url: str = "https://cafe.naver.com/sewhakinder", button_label: str = "") -> None:
         """텍스트 메시지를 전송한다."""
-        self._send_template({
+        template: dict = {
             "object_type": "text",
             "text": message[:2000],
             "link": {"web_url": link_url, "mobile_web_url": link_url},
-        })
+        }
+        if button_label:
+            template["buttons"] = [
+                {"title": button_label, "link": {"web_url": link_url, "mobile_web_url": link_url}}
+            ]
+        self._send_template(template)
 
     def send_notice_summary(self, title: str, summary: str) -> None:
         """공지 요약을 전송한다."""

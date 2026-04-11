@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _CAFE_URL = "https://cafe.naver.com/f-e/cafes/31672965"
 _ALBUM_ID = "AMjg2hP8k5198eTgkM9kcQO_IGEQAoqo-3uGqo8GCnKjGzhIDkfEzfkjsv22_h_oBzyWyQl8NqcA"
+_ALBUM_SHARE_URL = "https://photos.google.com/album/AF1QipO6xY0TO1r6l9Qdp_bytBU-w0A5ZiRxLs_4KvYM"
 
 
 def _filter_image_urls(urls: list[str]) -> list[str]:
@@ -137,13 +138,13 @@ async def _process_photo_board(
         tokens = gphotos.upload_images(paths)
         if tokens:
             gphotos.add_to_album(_ALBUM_ID, tokens)
-            album_url = f"https://photos.google.com/album/{_ALBUM_ID}"
+            album_url = _ALBUM_SHARE_URL
             kakao.send_text(
                 f"[세화유치원 사진]\n\n"
                 f"📷 {title}\n"
-                f"사진 {len(tokens)}장 업로드 완료\n\n"
-                f"👉 앨범에서 확인",
+                f"사진 {len(tokens)}장 업로드 완료",
                 link_url=album_url,
+                button_label="📷 앨범에서 보기",
             )
             logger.info("[사진] %d장 업로드 & 전송 완료", len(tokens))
 
