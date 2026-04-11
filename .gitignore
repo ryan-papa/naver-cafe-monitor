@@ -1,0 +1,43 @@
+# Environment & secrets
+.env
+*.env
+
+# Config (keep only the example)
+config/*.yaml
+!config/config.example.yaml
+
+# Face reference images (personal data — keep directory via .gitkeep)
+data/faces/*
+!data/faces/.gitkeep
+
+# Logs (keep directory via .gitkeep)
+logs/*
+!logs/.gitkeep
+
+# Python artifacts
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Build & dist
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Tools
+.ruff_cache/
+.mypy_cache/
