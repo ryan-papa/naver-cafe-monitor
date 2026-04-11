@@ -105,12 +105,12 @@ class TestPollerToggle:
 
     def test_from_config(self, mock_scheduler: MagicMock) -> None:
         """from_config() 팩토리가 Config에서 올바르게 Poller를 생성해야 한다."""
-        mock_config = MagicMock(spec=["poll_interval_seconds", "boards", "timezone"])
-        mock_config.poll_interval_seconds = 300
+        mock_config = MagicMock(spec=["poll_interval", "boards", "timezone"])
+        mock_config.poll_interval = 300
         mock_config.boards = [{"id": 1}]
         mock_config.timezone = "Asia/Seoul"
 
-        def dummy_poll(board: dict[str, Any]) -> None:
+        def dummy_poll(board: Any) -> None:
             pass
 
         p = Poller.from_config(mock_config, dummy_poll, scheduler=mock_scheduler)
