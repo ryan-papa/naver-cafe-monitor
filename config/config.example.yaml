@@ -31,7 +31,7 @@ notification:
 
 summary:
   enabled: true
-  model: "claude-3-5-haiku-20241022"
+  model: "opus"
   max_tokens: 300
 
 retry:

@@ -38,13 +38,14 @@ _IMAGE_PROMPT = """\
 먼저 Read 도구로 {image_path} 파일을 읽어.
 유치원 공지사항 이미지야. 이미지 내 모든 텍스트를 정확히 읽고 분석해줘.
 마크다운(**, ##, | 등) 사용 금지. 카카오톡 메시지용이라 순수 텍스트만 사용.
+중요: 5세/6세/7세 등 연령별 활동·일정·대상을 반드시 구분하여 표기. 나이 정보 생략 금지.
 
 [내용 정리]
-• 항목1
-• 항목2
+• 항목1 (대상: X세)
+• 항목2 (대상: 전체)
 
 [일정 정리]
-- 날짜 / 내용 / 대상
+- 날짜 / 내용 / 대상(X세)
 """
 
 _MERGE_PROMPT = """\
@@ -52,6 +53,7 @@ _MERGE_PROMPT = """\
 이것을 하나의 공지 요약으로 통합 정리해줘.
 중복 제거, 일정은 날짜순 정렬.
 마크다운(**, ##, | 등) 사용 금지. 카카오톡 메시지용이라 순수 텍스트만 사용.
+중요: 5세/6세/7세 등 연령별 활동·일정을 반드시 구분하여 표기. 나이 정보 생략 금지.
 
 [전체 내용 요약]
 • 항목별 불릿
@@ -80,12 +82,12 @@ class Summarizer:
         cmd = [self._claude_path, "-p", prompt, "--model", self._model]
         if tools:
             cmd.extend(["--allowedTools", tools])
-        logger.debug("Claude CLI 호출: model=%s", self._model)
+        logger.debug("Claude CLI 호출: model=%s, cmd=%s", self._model, " ".join(cmd[:4]))
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=str(Path.cwd()))
             if result.returncode != 0:
-                logger.error("Claude CLI 실패: %s", result.stderr)
-                raise RuntimeError(f"Claude CLI 실패: {result.stderr}")
+                logger.error("Claude CLI 실패: returncode=%d, stderr=%s, stdout=%s", result.returncode, result.stderr[:200], result.stdout[:200])
+                raise RuntimeError(f"Claude CLI 실패: rc={result.returncode} stderr={result.stderr[:200]} stdout={result.stdout[:200]}")
             return result.stdout.strip()
         except subprocess.TimeoutExpired:
             raise RuntimeError(f"Claude CLI 타임아웃 ({timeout}초)")

@@ -92,10 +92,15 @@ class KakaoMessenger:
         content_part = parts[0].strip()
         schedule_part = parts[1].strip() if len(parts) > 1 else ""
 
-        self._send_chunked(f"[세화유치원 공지]\n\n📋 {title}\n\n{content_part}")
+        link = post_url or "https://cafe.naver.com/sewhakinder"
+
+        self._send_chunked(
+            f"[세화유치원 공지]\n\n📋 {title}\n\n{content_part}",
+            link_url=link,
+            button_label="카페에서 원문 보기",
+        )
 
         if schedule_part:
-            link = post_url or "https://cafe.naver.com/sewhakinder"
             self._send_chunked(
                 f"[세화유치원 일정]\n\n📅 {title}\n\n{schedule_part}",
                 link_url=link,
