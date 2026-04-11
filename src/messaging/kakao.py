@@ -66,8 +66,17 @@ class KakaoMessenger:
         self._send_template(template)
 
     def send_notice_summary(self, title: str, summary: str) -> None:
-        """공지 요약을 전송한다."""
-        self.send_text(f"[세화유치원 공지]\n\n📋 {title}\n\n{summary}")
+        """공지 요약을 분할 전송한다. 전체 내용 + 일정 정리를 나눠서 전송."""
+        # [전체 내용 요약]과 [일정 정리]로 분리
+        parts = summary.split("[일정 정리]")
+
+        content_part = parts[0].strip()
+        schedule_part = parts[1].strip() if len(parts) > 1 else ""
+
+        self.send_text(f"[세화유치원 공지]\n\n📋 {title}\n\n{content_part}")
+
+        if schedule_part:
+            self.send_text(f"[세화유치원 일정]\n\n📅 {title}\n\n{schedule_part}")
 
     def send_matched_images(
         self, title: str, image_paths: list[Path], post_url: str
