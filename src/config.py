@@ -91,6 +91,13 @@ class Config:
             max_tokens=int(summary_raw.get("max_tokens", 300)),
         )
 
+        retry_raw = raw.get("retry", {})
+        self._retry_max: int = int(retry_raw.get("max_retries", 3))
+        self._retry_delay: float = float(retry_raw.get("delay_seconds", 5))
+        self._retry_exponential_backoff: bool = bool(
+            retry_raw.get("exponential_backoff", False)
+        )
+
         # 인증정보 — 환경변수에서만 로딩, 절대 하드코딩 금지
         self._naver_id: str = env_vars["NAVER_ID"]
         self._naver_pw: str = env_vars["NAVER_PW"]
@@ -153,6 +160,20 @@ class Config:
     @property
     def summary(self) -> SummaryConfig:
         return self._summary
+
+    # ── 재시도 ───────────────────────────────────────────────────────────────
+
+    @property
+    def retry_max(self) -> int:
+        return self._retry_max
+
+    @property
+    def retry_delay(self) -> float:
+        return self._retry_delay
+
+    @property
+    def retry_exponential_backoff(self) -> bool:
+        return self._retry_exponential_backoff
 
     # ── 인증정보 ──────────────────────────────────────────────────────────────
 

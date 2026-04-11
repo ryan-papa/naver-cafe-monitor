@@ -25,3 +25,8 @@ summary:
   enabled: true
   model: "claude-3-5-haiku-20241022"
   max_tokens: 300
+
+retry:
+  max_retries: 3
+  delay_seconds: 5
+  exponential_backoff: true
