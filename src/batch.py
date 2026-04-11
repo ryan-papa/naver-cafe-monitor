@@ -142,7 +142,8 @@ async def _process_photo_board(
                 f"[세화유치원 사진]\n\n"
                 f"📷 {title}\n"
                 f"사진 {len(tokens)}장 업로드 완료\n\n"
-                f"앨범: {album_url}"
+                f"👉 앨범에서 확인",
+                link_url=album_url,
             )
             logger.info("[사진] %d장 업로드 & 전송 완료", len(tokens))
 
