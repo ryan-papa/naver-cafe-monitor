@@ -127,32 +127,47 @@ class Summarizer:
             top = i * chunk_h
             bottom = h if i == parts - 1 else (i + 1) * chunk_h
             cropped = img.crop((0, top, w, bottom))
-            out = image_path.parent / f"{image_path.stem}_part{i}{image_path.suffix}"
+            out = image_path.parent / f"{image_path.stem}_s{parts}_p{i}{image_path.suffix}"
             cropped.save(out)
             split_paths.append(out)
         logger.info("이미지 %d분할 완료: %s", parts, image_path.name)
         return split_paths
 
+    def _analyze_split(self, split_paths: list[Path], label: str) -> list[str]:
+        """분할된 이미지들을 분석한다."""
+        results = []
+        for i, sp in enumerate(split_paths):
+            logger.info("[%s] 파트 %d/%d 분석 중...", label, i + 1, len(split_paths))
+            prompt = _IMAGE_PROMPT.format(image_path=str(sp.resolve()))
+            result = self._run_cli(prompt, timeout=120, tools="Read")
+            results.append(f"[{label} 파트 {i + 1}]\n{result}")
+        return results
+
     def analyze_image(self, image_path: str | Path) -> str:
-        """공지사항 이미지를 분할 분석 후 통합 요약한다."""
+        """공지사항 이미지를 2등분+3등분 병렬 분석 후 통합 요약한다.
+
+        2등분과 3등분의 경계가 다르므로 잘리는 텍스트 없이 전체를 커버.
+        """
         path = Path(image_path).resolve()
         if not path.exists():
             raise FileNotFoundError(f"이미지 파일 없음: {path}")
 
-        # 이미지 분할
-        split_paths = self._split_image(path, parts=2)
+        # 2등분 + 3등분 이미지 생성
+        split_2 = self._split_image(path, parts=2)
+        split_3 = self._split_image(path, parts=3)
 
-        # 각 파트 분석
-        parts_results = []
-        for i, sp in enumerate(split_paths):
-            logger.info("파트 %d/%d 분석 중...", i + 1, len(split_paths))
-            prompt = _IMAGE_PROMPT.format(image_path=str(sp.resolve()))
-            result = self._run_cli(prompt, timeout=120, tools="Read")
-            parts_results.append(f"[파트 {i + 1}]\n{result}")
+        # 병렬 실행 (subprocess이므로 ThreadPoolExecutor 사용)
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            future_2 = pool.submit(self._analyze_split, split_2, "2분할")
+            future_3 = pool.submit(self._analyze_split, split_3, "3분할")
+            results_2 = future_2.result()
+            results_3 = future_3.result()
 
-        # 통합 요약
-        merged_text = "\n\n".join(parts_results)
-        logger.info("통합 요약 중...")
+        # 전체 결과 통합
+        all_results = results_2 + results_3
+        merged_text = "\n\n".join(all_results)
+        logger.info("통합 요약 중... (2분할 %d + 3분할 %d 결과)", len(results_2), len(results_3))
         return self._run_cli(
             _MERGE_PROMPT.format(parts=merged_text), timeout=60
         )
