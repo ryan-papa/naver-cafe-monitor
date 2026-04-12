@@ -12,6 +12,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install --upgrade pip setuptools
-      - run: pip install -e ".[dev]"
+      - run: pip install --upgrade pip setuptools wheel
+      - run: pip install ".[dev]"
       - run: python -m pytest tests/ -q
