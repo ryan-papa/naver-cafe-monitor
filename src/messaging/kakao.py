@@ -45,6 +45,10 @@ class KakaoMessenger:
     def _send_template(self, template: dict) -> None:
         data = {"template_object": json.dumps(template, ensure_ascii=False)}
         r = requests.post(_MEMO_URL, headers=self._headers, data=data)
+        if r.status_code == 401:
+            logger.info("카카오 401 — 토큰 갱신 후 재시도")
+            self._auth.refresh()
+            r = requests.post(_MEMO_URL, headers=self._headers, data=data)
         if r.status_code != 200:
             logger.error("카카오 전송 실패: %s %s", r.status_code, r.text)
             raise RuntimeError(f"카카오 전송 실패: {r.status_code} {r.text}")
@@ -57,6 +61,15 @@ class KakaoMessenger:
                 headers=self._headers,
                 files={"file": (image_path.name, f, "image/jpeg")},
             )
+        if r.status_code == 401:
+            logger.info("카카오 이미지 업로드 401 — 토큰 갱신 후 재시도")
+            self._auth.refresh()
+            with open(image_path, "rb") as f:
+                r = requests.post(
+                    _IMAGE_UPLOAD_URL,
+                    headers=self._headers,
+                    files={"file": (image_path.name, f, "image/jpeg")},
+                )
         if r.status_code != 200:
             raise RuntimeError(f"이미지 업로드 실패: {r.status_code} {r.text}")
         return r.json()["infos"]["original"]["url"]
