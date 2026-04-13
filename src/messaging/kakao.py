@@ -14,6 +14,7 @@ import requests
 
 if TYPE_CHECKING:
     from src.config import Config
+    from src.messaging.kakao_auth import KakaoAuth
 
 logger = logging.getLogger(__name__)
 
@@ -25,13 +26,21 @@ _MAX_LIST_ITEMS = 3  # list 타입 최대 항목 수
 class KakaoMessenger:
     """카카오 메시지 전송 클래스."""
 
-    def __init__(self, access_token: str) -> None:
-        self._token = access_token
-        self._headers = {"Authorization": f"Bearer {access_token}"}
+    def __init__(self, auth: "KakaoAuth") -> None:
+        self._auth = auth
 
     @classmethod
     def from_config(cls, config: "Config") -> "KakaoMessenger":
-        return cls(access_token=config.kakao_token)
+        from src.messaging.kakao_auth import KakaoAuth
+        auth = KakaoAuth(
+            client_id=config.kakao_client_id,
+            client_secret=config.kakao_client_secret,
+        )
+        return cls(auth=auth)
+
+    @property
+    def _headers(self) -> dict[str, str]:
+        return {"Authorization": f"Bearer {self._auth.access_token}"}
 
     def _send_template(self, template: dict) -> None:
         data = {"template_object": json.dumps(template, ensure_ascii=False)}

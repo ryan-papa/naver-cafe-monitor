@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _CONFIG_DIR = _PROJECT_ROOT / "config"
-_REQUIRED_ENV_VARS = ("NAVER_ID", "NAVER_PW", "KAKAO_TOKEN")
+_REQUIRED_ENV_VARS = ("NAVER_ID", "NAVER_PW", "KAKAO_CLIENT_ID", "KAKAO_CLIENT_SECRET")
 
 
 @dataclass
@@ -113,7 +113,8 @@ class Config:
 
         self._naver_id: str = env_vars["NAVER_ID"]
         self._naver_pw: str = env_vars["NAVER_PW"]
-        self._kakao_token: str = env_vars["KAKAO_TOKEN"]
+        self._kakao_client_id: str = env_vars["KAKAO_CLIENT_ID"]
+        self._kakao_client_secret: str = env_vars["KAKAO_CLIENT_SECRET"]
         self._anthropic_api_key: str = env_vars.get("ANTHROPIC_API_KEY", "")
 
     # ── 프로퍼티: 스케줄러 ─────────────────────────────────────────────────────
@@ -157,7 +158,9 @@ class Config:
     @property
     def naver_pw(self) -> str: return self._naver_pw
     @property
-    def kakao_token(self) -> str: return self._kakao_token
+    def kakao_client_id(self) -> str: return self._kakao_client_id
+    @property
+    def kakao_client_secret(self) -> str: return self._kakao_client_secret
     @property
     def anthropic_api_key(self) -> str: return self._anthropic_api_key
 
