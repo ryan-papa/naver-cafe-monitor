@@ -32,7 +32,8 @@ _MINIMAL_RAW: dict = {
 _VALID_ENV: dict[str, str] = {
     "NAVER_ID": "test_id",
     "NAVER_PW": "test_pw",
-    "KAKAO_TOKEN": "test_kakao",
+    "KAKAO_CLIENT_ID": "test_client_id",
+    "KAKAO_CLIENT_SECRET": "test_client_secret",
     "ANTHROPIC_API_KEY": "test_anthropic",
 }
 
@@ -86,7 +87,8 @@ class TestConfigLoading:
     def test_credentials_loaded_from_env(self, cfg: Config) -> None:
         assert cfg.naver_id == "test_id"
         assert cfg.naver_pw == "test_pw"
-        assert cfg.kakao_token == "test_kakao"
+        assert cfg.kakao_client_id == "test_client_id"
+        assert cfg.kakao_client_secret == "test_client_secret"
         assert cfg.anthropic_api_key == "test_anthropic"
 
 
@@ -119,7 +121,7 @@ class TestYamlFallback:
 
 class TestMissingEnvVars:
     def test_raises_on_missing_all_env_vars(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        for key in ("NAVER_ID", "NAVER_PW", "KAKAO_TOKEN", "ANTHROPIC_API_KEY"):
+        for key in ("NAVER_ID", "NAVER_PW", "KAKAO_CLIENT_ID", "KAKAO_CLIENT_SECRET", "ANTHROPIC_API_KEY"):
             monkeypatch.delenv(key, raising=False)
         env_file = tmp_path / ".env"
         env_file.write_text("", encoding="utf-8")
@@ -128,7 +130,7 @@ class TestMissingEnvVars:
             _load_env_vars(env_file)
 
     def test_error_message_lists_missing_keys(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        for key in ("NAVER_ID", "NAVER_PW", "KAKAO_TOKEN"):
+        for key in ("NAVER_ID", "NAVER_PW", "KAKAO_CLIENT_ID", "KAKAO_CLIENT_SECRET"):
             monkeypatch.delenv(key, raising=False)
         monkeypatch.setenv("NAVER_ID", "set")
         monkeypatch.setenv("NAVER_PW", "set")
@@ -139,19 +141,20 @@ class TestMissingEnvVars:
             _load_env_vars(env_file)
 
         msg = str(exc_info.value)
-        assert "KAKAO_TOKEN" in msg
+        assert "KAKAO_CLIENT_ID" in msg
         assert "NAVER_ID" not in msg  # 이미 설정된 키는 포함되지 않아야 함
 
     def test_raises_on_single_missing_env_var(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        for key in ("NAVER_ID", "NAVER_PW", "KAKAO_TOKEN"):
+        for key in ("NAVER_ID", "NAVER_PW", "KAKAO_CLIENT_ID", "KAKAO_CLIENT_SECRET"):
             monkeypatch.delenv(key, raising=False)
         monkeypatch.setenv("NAVER_ID", "id")
         monkeypatch.setenv("NAVER_PW", "pw")
-        # KAKAO_TOKEN 누락
+        monkeypatch.setenv("KAKAO_CLIENT_ID", "cid")
+        # KAKAO_CLIENT_SECRET 누락
         env_file = tmp_path / ".env"
         env_file.write_text("", encoding="utf-8")
 
-        with pytest.raises(EnvironmentError, match="KAKAO_TOKEN"):
+        with pytest.raises(EnvironmentError, match="KAKAO_CLIENT_SECRET"):
             _load_env_vars(env_file)
 
 
@@ -205,17 +208,18 @@ class TestLoadConfig:
         )
         env_file = tmp_path / ".env"
         env_file.write_text(
-            "NAVER_ID=myid\nNAVER_PW=mypw\nKAKAO_TOKEN=mytoken\nANTHROPIC_API_KEY=mykey\n",
+            "NAVER_ID=myid\nNAVER_PW=mypw\nKAKAO_CLIENT_ID=mycid\nKAKAO_CLIENT_SECRET=mycsec\nANTHROPIC_API_KEY=mykey\n",
             encoding="utf-8",
         )
 
         # 기존 환경변수 오염 방지
-        for key in ("NAVER_ID", "NAVER_PW", "KAKAO_TOKEN", "ANTHROPIC_API_KEY"):
+        for key in ("NAVER_ID", "NAVER_PW", "KAKAO_CLIENT_ID", "KAKAO_CLIENT_SECRET", "ANTHROPIC_API_KEY"):
             monkeypatch.delenv(key, raising=False)
 
         cfg = load_config(config_dir=config_dir, env_file=env_file)
 
         assert cfg.poll_interval == 120
         assert cfg.naver_id == "myid"
-        assert cfg.kakao_token == "mytoken"
+        assert cfg.kakao_client_id == "mycid"
+        assert cfg.kakao_client_secret == "mycsec"
         assert cfg.notification.kakao.enabled is False

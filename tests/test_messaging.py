@@ -20,10 +20,17 @@ def mock_post():
         yield mock
 
 
+def _mock_auth(token: str = "test-token") -> MagicMock:
+    """테스트용 KakaoAuth mock."""
+    auth = MagicMock()
+    auth.access_token = token
+    return auth
+
+
 @pytest.fixture()
 def messenger() -> KakaoMessenger:
     """테스트용 KakaoMessenger 인스턴스."""
-    return KakaoMessenger(access_token="test-token")
+    return KakaoMessenger(auth=_mock_auth())
 
 
 # ── 초기화 테스트 ──────────────────────────────────────────────────────────────
@@ -31,17 +38,18 @@ def messenger() -> KakaoMessenger:
 class TestKakaoMessengerInit:
     """KakaoMessenger 초기화 테스트."""
 
-    def test_from_config(self) -> None:
-        """from_config() 팩토리가 올바르게 인스턴스를 생성하는지 확인."""
-        mock_config = MagicMock()
-        mock_config.kakao_token = "my-token"
-        messenger = KakaoMessenger.from_config(mock_config)
-        assert isinstance(messenger, KakaoMessenger)
+    def test_init_with_auth(self) -> None:
+        """KakaoAuth를 주입받아 초기화되는지 확인."""
+        auth = _mock_auth("my-token")
+        m = KakaoMessenger(auth=auth)
+        assert m._headers["Authorization"] == "Bearer my-token"
 
-    def test_headers_set(self) -> None:
-        """초기화 시 Authorization 헤더가 설정되는지 확인."""
-        m = KakaoMessenger(access_token="my-access-token")
-        assert m._headers["Authorization"] == "Bearer my-access-token"
+    def test_headers_reflect_current_token(self) -> None:
+        """토큰이 갱신되면 헤더도 변경되는지 확인."""
+        auth = _mock_auth("old-token")
+        m = KakaoMessenger(auth=auth)
+        auth.access_token = "new-token"
+        assert m._headers["Authorization"] == "Bearer new-token"
 
 
 # ── 텍스트 전송 테스트 ─────────────────────────────────────────────────────────
@@ -61,13 +69,37 @@ class TestSendText:
         assert template["object_type"] == "text"
         assert template["text"] == "안녕하세요!"
 
-    def test_send_text_raises_on_failure(
+    def test_send_text_401_triggers_refresh_and_retry(
         self, messenger: KakaoMessenger, mock_post: MagicMock
     ) -> None:
-        """API 호출 실패 시 RuntimeError가 발생하는지 확인."""
+        """401 시 토큰 갱신 후 재시도하여 성공하는지 확인."""
+        first_resp = MagicMock(status_code=401, text="Unauthorized")
+        second_resp = MagicMock(status_code=200, text="OK")
+        mock_post.side_effect = [first_resp, second_resp]
+
+        messenger.send_text("테스트 메시지")
+
+        assert mock_post.call_count == 2
+        messenger._auth.refresh.assert_called_once()
+
+    def test_send_text_401_retry_still_fails(
+        self, messenger: KakaoMessenger, mock_post: MagicMock
+    ) -> None:
+        """401 재시도 후에도 실패하면 RuntimeError 발생."""
         mock_post.return_value = MagicMock(status_code=401, text="Unauthorized")
+
         with pytest.raises(RuntimeError, match="카카오 전송 실패"):
             messenger.send_text("테스트 메시지")
+
+    def test_send_text_403_no_retry(
+        self, messenger: KakaoMessenger, mock_post: MagicMock
+    ) -> None:
+        """403 에러 시 갱신 없이 즉시 에러."""
+        mock_post.return_value = MagicMock(status_code=403, text="Forbidden")
+
+        with pytest.raises(RuntimeError, match="카카오 전송 실패"):
+            messenger.send_text("테스트 메시지")
+        messenger._auth.refresh.assert_not_called()
 
     def test_send_text_long_message_truncated(
         self, messenger: KakaoMessenger, mock_post: MagicMock

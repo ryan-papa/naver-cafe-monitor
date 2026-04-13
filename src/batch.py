@@ -22,6 +22,7 @@ from src.crawler.image_downloader import ImageDownloader
 from src.crawler.post_tracker import JsonFileStore
 from src.crawler.session import build_context, restore_cookies
 from src.messaging.kakao import KakaoMessenger
+from src.messaging.kakao_auth import KakaoAuth
 from src.notice.summarizer import Summarizer
 from src.storage.google_photos import GooglePhotosClient
 
@@ -33,6 +34,26 @@ _PHOTO_ALBUM_ID = "AMjg2hP8k5198eTgkM9kcQO_IGEQAoqo-3uGqo8GCnKjGzhIDkfEzfkjsv22_
 _PHOTO_ALBUM_URL = "https://photos.google.com/album/AF1QipO6xY0TO1r6l9Qdp_bytBU-w0A5ZiRxLs_4KvYM"
 _NOTICE_ALBUM_ID = "AMjg2hO8NxElTPDPyohMs3DS72-H0y4OIGX1Pxsu_s-R-lKW73o2H9CAqUVgUHTT89nDwCTTGvfi"
 _NOTICE_ALBUM_URL = "https://photos.google.com/album/AF1QipNGmtFtsRkWf1VTrNEHXoX2_Heude7VxZ0jOsTM"
+
+
+def _check_refresh_token_alert(auth: KakaoAuth, kakao: KakaoMessenger) -> None:
+    """refresh token 만료 임박 시 WARNING 로그 + 카카오톡 알림 (하루 1회)."""
+    days_left = auth.check_refresh_token_expiry()
+    if days_left is None:
+        return
+
+    if not auth.should_alert_today():
+        return
+
+    msg = f"[카카오 토큰 알림] refresh token 만료까지 {days_left}일 남았습니다. 재인증이 필요합니다."
+    logger.warning(msg)
+
+    try:
+        kakao.send_text(msg)
+        auth.mark_alert_sent()
+        logger.info("refresh token 만료 알림 전송 완료")
+    except Exception as e:
+        logger.error("refresh token 만료 알림 전송 실패: %s", e)
 
 
 def _filter_image_urls(urls: list[str]) -> list[str]:
@@ -249,9 +270,16 @@ async def run() -> None:
     # Google Photos 토큰 로딩 (자동 갱신 포함)
     gphotos = GooglePhotosClient()
 
-    # 카카오 & 요약 초기화
-    kakao = KakaoMessenger.from_config(config)
+    # 카카오 인증 + 메신저 초기화
+    kakao_auth = KakaoAuth(
+        client_id=config.kakao_client_id,
+        client_secret=config.kakao_client_secret,
+    )
+    kakao = KakaoMessenger(auth=kakao_auth)
     summarizer = Summarizer.from_config(config)
+
+    # refresh token 만료 알림 체크
+    _check_refresh_token_alert(kakao_auth, kakao)
 
     # last_seen 로딩
     last_seen = _load_last_seen()
