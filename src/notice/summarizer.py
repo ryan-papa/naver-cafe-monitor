@@ -73,7 +73,7 @@ _MERGE_PROMPT = """\
 class Summarizer:
     """공지사항을 Claude Code CLI로 요약하는 클래스."""
 
-    def __init__(self, model: str = "opus", claude_path: str = "claude") -> None:
+    def __init__(self, model: str = "opus", claude_path: str = "/Users/hose.kim/.local/bin/claude") -> None:
         self._model = model
         self._claude_path = claude_path
 
