@@ -1,0 +1,41 @@
+{
+  "date": "2026-04-13",
+  "window": "7d",
+  "metrics": {
+    "commits": 44,
+    "contributors": 1,
+    "prs_merged": 3,
+    "insertions": 8010,
+    "deletions": 1608,
+    "net_loc": 6402,
+    "test_loc": 3102,
+    "test_ratio": 0.39,
+    "active_days": 3,
+    "sessions": 4,
+    "deep_sessions": 2,
+    "avg_session_minutes": 51,
+    "loc_per_session_hour": 2350,
+    "feat_pct": 0.45,
+    "fix_pct": 0.39,
+    "peak_hour": 18,
+    "ai_assisted_commits": 44
+  },
+  "authors": {
+    "hose.kim": {
+      "commits": 44,
+      "insertions": 8010,
+      "deletions": 1608,
+      "test_ratio": 0.39,
+      "top_area": "src/messaging/"
+    }
+  },
+  "version_range": ["0.1.0", "0.1.0"],
+  "streak_days": 3,
+  "tweetable": "4/7~4/13: 44 commits, 8.0k LOC, 39% tests, 3 PRs, 솔로 빌드 from scratch | Streak: 3d",
+  "test_health": {
+    "total_test_files": 0,
+    "tests_added_this_period": 10,
+    "regression_test_commits": 0,
+    "test_files_changed": 10
+  }
+}

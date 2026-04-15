@@ -30,3 +30,32 @@
 | T-16 | 401 감지 → 토큰 갱신 → 재시도 로직 (`KakaoMessenger` + `KakaoAuth` 통합) | F-15 | High | Done | `feat/T-16-401-retry` |
 | T-17 | refresh token 만료 알림 (WARNING 로그 + 카카오톡, 하루 1회, 14일 전부터) | F-17, F-18, F-19 | Mid | Done | `feat/T-17-refresh-alert` |
 | T-18 | `scripts/kakao_setup.py` 셋업 스크립트 (로컬 서버 + 브라우저 + 토큰 발급) | F-20 | Mid | Done | `feat/T-18-kakao-setup` |
+
+## DB 전환 및 3-Tier 구조 재구성
+
+**PRD:** `docs/prd/20260415_214833_db-migration_6a3a6246.md`
+**통합 브랜치:** `feat/db-migration`
+
+| ID | 설명 | PRD | 우선순위 | 상태 | 브랜치 |
+|----|------|-----|----------|------|--------|
+| T-19 | 모노레포 구조 재구성 — `src/` → `batch/src/`, `api/`, `web/`, `db/`, `shared/` 생성, import 경로 수정 | F-09 | High | Done | `feat/T-19-monorepo-restructure` |
+| T-20 | DDL 작성 + DB/테이블 생성 — `db/ddl.sql`, eepp.shop MySQL 실행 | F-01, F-02 | High | Done | `feat/T-20-ddl-posts-table` |
+| T-21 | shared DB 연결 모듈 — `shared/database.py` SSL 기반 연결 풀 | F-10 | High | Done | `feat/T-21-shared-db-connection` |
+| T-22 | batch DB 기록 — 게시글 처리 시 `posts` INSERT, status(SUCCESS/FAIL) | F-03 | High | Done | `feat/T-22-batch-db-insert` |
+| T-23 | DbStore 구현 — `LastSeenStore` Protocol DB 구현체, `MAX(post_id)` 조회 | F-04 | High | Done | `feat/T-23-db-store-impl` |
+| T-24 | 마이그레이션 스크립트 — `last_seen.json` → DB import 후 파일 삭제 | F-05 | High | Done | `feat/T-24-migrate-last-seen` |
+| T-25 | FastAPI 백엔드 — `GET /api/posts` (필터/정렬/페이징), `GET /api/posts/{id}` | F-06, F-07 | High | Done | `feat/T-25-fastapi-backend` |
+| T-26 | Astro 프론트엔드 — 게시글 이력 목록 페이지 (테이블형, 필터/정렬/페이징) | F-08 | High | Done | `feat/T-26-astro-frontend` |
+
+### 의존성 그래프
+
+```
+T-19 (모노레포 구조)
+ ├── T-20 (DDL)
+ └── T-21 (DB 연결)
+      ├── T-22 (batch DB 기록)
+      ├── T-23 (DbStore)
+      ├── T-24 (마이그레이션)
+      └── T-25 (FastAPI)
+           └── T-26 (Astro 프론트)
+```

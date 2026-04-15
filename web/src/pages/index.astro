@@ -1,0 +1,270 @@
+---
+import "bootstrap/dist/css/bootstrap.min.css";
+import "bootstrap-icons/font/bootstrap-icons.min.css";
+const API_BASE = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>카페 모니터</title>
+		<meta name="description" content="네이버 카페 게시글 모니터링 처리 이력" />
+		<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+		<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard-dynamic-subset.min.css" rel="stylesheet" />
+		<style>
+			:root {
+				--bg-main: #f7f8fa;
+				--card-shadow: 0 1px 4px rgba(0,0,0,0.05);
+				--badge-notice-bg: #fff4e6; --badge-notice-fg: #d9480f;
+				--badge-photo-bg: #e7f5ff; --badge-photo-fg: #1971c2;
+				--badge-ok-bg: #d3f9d8; --badge-ok-fg: #2b8a3e;
+				--badge-fail-bg: #ffe3e3; --badge-fail-fg: #c92a2a;
+			}
+			body {
+				font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+				background: var(--bg-main); color: #212529;
+			}
+
+			/* ── 네비게이션 ── */
+			.top-bar {
+				background: #fff; border-bottom: 1px solid #eee;
+				padding: 14px 0;
+			}
+			.top-bar .brand { font-weight: 700; font-size: 1.05rem; color: #212529; text-decoration: none; }
+			.top-bar .brand i { color: #3182f6; }
+			.top-bar .ts { font-size: 0.78rem; color: #adb5bd; }
+
+			/* ── 통계 ── */
+			.stat-card {
+				background: #fff; border-radius: 12px; padding: 18px 20px;
+				box-shadow: var(--card-shadow); border-left: 3px solid transparent;
+			}
+			.stat-card .num { font-size: 1.6rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+			.stat-card .lbl { font-size: 0.78rem; color: #868e96; margin-top: 6px; }
+			.stat-total { border-color: #3182f6; }
+			.stat-total .num { color: #3182f6; }
+			.stat-ok { border-color: #2b8a3e; }
+			.stat-ok .num { color: #2b8a3e; }
+			.stat-fail { border-color: #e03131; }
+			.stat-fail .num { color: #e03131; }
+
+			/* ── 필터 ── */
+			.filter-row { background: #fff; border-radius: 12px; padding: 12px 16px; box-shadow: var(--card-shadow); }
+			.filter-row .form-select {
+				font-size: 0.82rem; border-color: #e9ecef; border-radius: 8px;
+				padding: 6px 32px 6px 10px; color: #495057;
+			}
+			.filter-row .form-select:focus { border-color: #3182f6; box-shadow: 0 0 0 2px rgba(49,130,246,0.15); }
+
+			/* ── 테이블 카드 ── */
+			.data-card { background: #fff; border-radius: 12px; box-shadow: var(--card-shadow); overflow: hidden; }
+			.table { margin-bottom: 0; font-size: 0.875rem; }
+			.table thead th {
+				font-size: 0.7rem; font-weight: 700; color: #868e96;
+				letter-spacing: 0.06em; text-transform: uppercase;
+				padding: 12px 16px; background: #fafbfc; border-bottom: 1px solid #f1f3f5;
+			}
+			.table tbody td { padding: 14px 16px; vertical-align: middle; border-bottom: 1px solid #f8f9fa; }
+			.table tbody tr:last-child td { border-bottom: 0; }
+			.table-hover tbody tr:hover { background: #f8f9fa; }
+
+			/* ── 배지 ── */
+			.b { display: inline-block; padding: 3px 9px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.01em; }
+			.b-notice { background: var(--badge-notice-bg); color: var(--badge-notice-fg); }
+			.b-photo { background: var(--badge-photo-bg); color: var(--badge-photo-fg); }
+			.b-ok { background: var(--badge-ok-bg); color: var(--badge-ok-fg); }
+			.b-fail { background: var(--badge-fail-bg); color: var(--badge-fail-fg); }
+
+			/* ── 셀 ── */
+			.c-title { font-weight: 600; color: #333; }
+			.c-pid { font-size: 0.75rem; color: #868e96; font-variant-numeric: tabular-nums; }
+			.c-img { font-size: 0.82rem; color: #868e96; }
+			.c-date { font-size: 0.8rem; color: #868e96; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+			/* ── 빈 상태 / 로딩 ── */
+			.state-box {
+				display: flex; flex-direction: column; align-items: center; justify-content: center;
+				text-align: center; padding: 80px 20px; min-height: 320px;
+			}
+			.state-box .ico { font-size: 2.5rem; color: #dee2e6; margin-bottom: 12px; }
+			.state-box h6 { font-weight: 700; margin-bottom: 4px; }
+			.state-box p { font-size: 0.85rem; color: #868e96; }
+
+			/* ── 페이징 ── */
+			.paging .page-link { font-size: 0.82rem; border-radius: 8px; border-color: #e9ecef; color: #495057; }
+			.paging .page-link:hover { background: #f1f3f5; }
+			.paging .page-item.disabled .page-link { color: #ced4da; }
+		</style>
+	</head>
+	<body>
+		<div class="top-bar">
+			<div class="container d-flex align-items-center justify-content-between">
+				<a class="brand" href="/"><i class="bi bi-clipboard2-data me-1"></i> 카페 모니터</a>
+				<span class="ts" id="last-updated"></span>
+			</div>
+		</div>
+
+		<main class="container py-4">
+			<!-- 통계 -->
+			<div class="row g-3 mb-3">
+				<div class="col-4"><div class="stat-card stat-total"><div class="num" id="stat-total">-</div><div class="lbl">전체</div></div></div>
+				<div class="col-4"><div class="stat-card stat-ok"><div class="num" id="stat-success">-</div><div class="lbl">성공</div></div></div>
+				<div class="col-4"><div class="stat-card stat-fail"><div class="num" id="stat-fail">-</div><div class="lbl">실패</div></div></div>
+			</div>
+
+			<!-- 필터 -->
+			<div class="filter-row mb-3">
+				<div class="row g-2 align-items-center" role="search" aria-label="필터">
+					<div class="col-auto">
+						<select class="form-select form-select-sm" id="filter-board" aria-label="게시판">
+							<option value="">전체 게시판</option>
+							<option value="menus/6">공지사항</option>
+							<option value="menus/13">사진</option>
+						</select>
+					</div>
+					<div class="col-auto">
+						<select class="form-select form-select-sm" id="filter-status" aria-label="상태">
+							<option value="">전체 상태</option>
+							<option value="SUCCESS">성공</option>
+							<option value="FAIL">실패</option>
+						</select>
+					</div>
+					<div class="col-auto">
+						<select class="form-select form-select-sm" id="sort-by" aria-label="정렬">
+							<option value="reg_ts">처리일시</option>
+							<option value="post_date">게시일</option>
+							<option value="post_id">게시글번호</option>
+						</select>
+					</div>
+					<div class="col-auto">
+						<select class="form-select form-select-sm" id="sort-order" aria-label="방향">
+							<option value="DESC">최신순</option>
+							<option value="ASC">오래된순</option>
+						</select>
+					</div>
+				</div>
+			</div>
+
+			<!-- 테이블 -->
+			<section class="data-card" aria-label="처리 이력">
+				<div id="table-container">
+					<div class="state-box">
+						<div class="spinner-border spinner-border-sm text-primary mb-3" role="status"></div>
+						<p>불러오는 중</p>
+					</div>
+				</div>
+			</section>
+
+			<!-- 페이징 -->
+			<nav aria-label="pagination" class="mt-3 paging" id="pagination"></nav>
+		</main>
+
+		<script define:vars={{ API_BASE }}>
+			let currentOffset = 0;
+			const LIMIT = 20;
+
+			const B = {
+				board(id) {
+					if (id === 'menus/6') return '<span class="b b-notice">공지</span>';
+					if (id === 'menus/13') return '<span class="b b-photo">사진</span>';
+					return `<span class="b">${id}</span>`;
+				},
+				status(s) {
+					return s === 'SUCCESS'
+						? '<span class="b b-ok"><i class="bi bi-check-circle-fill me-1"></i>성공</span>'
+						: '<span class="b b-fail"><i class="bi bi-x-circle-fill me-1"></i>실패</span>';
+				},
+				date(s) {
+					if (!s) return '<span class="c-date">-</span>';
+					return `<span class="c-date">${s.replace('T',' ').slice(0,16)}</span>`;
+				},
+			};
+
+			async function load(offset = 0) {
+				const board = document.getElementById('filter-board').value;
+				const status = document.getElementById('filter-status').value;
+				const sortBy = document.getElementById('sort-by').value;
+				const sortOrder = document.getElementById('sort-order').value;
+				const p = new URLSearchParams({ offset, limit: LIMIT, sort_by: sortBy, sort_order: sortOrder });
+				if (board) p.set('board_id', board);
+				if (status) p.set('status', status);
+
+				const el = document.getElementById('table-container');
+				el.innerHTML = '<div class="state-box"><div class="spinner-border spinner-border-sm text-primary mb-3"></div><p>불러오는 중</p></div>';
+
+				try {
+					const r = await fetch(`${API_BASE}/api/posts?${p}`);
+					if (!r.ok) throw new Error(r.status);
+					const d = await r.json();
+					currentOffset = offset;
+					render(d);
+					paging(d);
+					stats();
+				} catch {
+					el.innerHTML = '<div class="state-box"><div class="ico"><i class="bi bi-wifi-off"></i></div><h6>연결할 수 없어요</h6><p>API 서버가 실행 중인지 확인해주세요</p></div>';
+					document.getElementById('pagination').innerHTML = '';
+				}
+			}
+
+			async function stats() {
+				try {
+					const [a,s,f] = await Promise.all([
+						fetch(`${API_BASE}/api/posts?limit=1`).then(r=>r.json()),
+						fetch(`${API_BASE}/api/posts?status=SUCCESS&limit=1`).then(r=>r.json()),
+						fetch(`${API_BASE}/api/posts?status=FAIL&limit=1`).then(r=>r.json()),
+					]);
+					document.getElementById('stat-total').textContent = a.total;
+					document.getElementById('stat-success').textContent = s.total;
+					document.getElementById('stat-fail').textContent = f.total;
+					const n = new Date();
+					document.getElementById('last-updated').textContent = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')} 업데이트`;
+				} catch {}
+			}
+
+			function render(d) {
+				const el = document.getElementById('table-container');
+				if (!d.items.length) {
+					el.innerHTML = '<div class="state-box"><div class="ico"><i class="bi bi-inbox"></i></div><h6>데이터가 없어요</h6><p>조건에 맞는 결과가 없어요. 필터를 변경해보세요.</p></div>';
+					return;
+				}
+				let h = `<table class="table table-hover"><thead><tr>
+					<th>게시판</th><th style="min-width:100px">번호</th><th>제목</th>
+					<th class="d-none d-md-table-cell">이미지</th><th>상태</th>
+					<th class="d-none d-md-table-cell">처리일시</th>
+				</tr></thead><tbody>`;
+				for (const r of d.items) {
+					h += `<tr>
+						<td>${B.board(r.board_id)}</td>
+						<td><span class="c-pid">${r.post_id}</span></td>
+						<td><span class="c-title">${r.title || '-'}</span></td>
+						<td class="d-none d-md-table-cell">
+							${r.image_count ? `<span class="c-img"><i class="bi bi-image me-1"></i>${r.image_count}</span>` : '<span class="c-img">-</span>'}
+						</td>
+						<td>${B.status(r.status)}</td>
+						<td class="d-none d-md-table-cell">${B.date(r.reg_ts)}</td>
+					</tr>`;
+				}
+				h += '</tbody></table>';
+				el.innerHTML = h;
+			}
+
+			function paging(d) {
+				const el = document.getElementById('pagination');
+				if (d.total <= LIMIT) { el.innerHTML = ''; return; }
+				const pg = Math.floor(d.offset / LIMIT) + 1;
+				const tot = Math.ceil(d.total / LIMIT);
+				el.innerHTML = `<ul class="pagination pagination-sm justify-content-center mb-0">
+					<li class="page-item ${d.offset<=0?'disabled':''}"><a class="page-link" href="#" id="pp"><i class="bi bi-chevron-left"></i> 이전</a></li>
+					<li class="page-item disabled"><span class="page-link">${pg} / ${tot}</span></li>
+					<li class="page-item ${d.offset+LIMIT>=d.total?'disabled':''}"><a class="page-link" href="#" id="pn">다음 <i class="bi bi-chevron-right"></i></a></li>
+				</ul>`;
+				document.getElementById('pp')?.addEventListener('click', e => { e.preventDefault(); load(currentOffset - LIMIT); });
+				document.getElementById('pn')?.addEventListener('click', e => { e.preventDefault(); load(currentOffset + LIMIT); });
+			}
+
+			document.querySelectorAll('select').forEach(s => s.addEventListener('change', () => load(0)));
+			load(0);
+		</script>
+	</body>
+</html>

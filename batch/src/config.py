@@ -8,8 +8,9 @@ from typing import Any
 import yaml
 from dotenv import load_dotenv
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
-_CONFIG_DIR = _PROJECT_ROOT / "config"
+_BATCH_ROOT = Path(__file__).resolve().parent.parent
+_REPO_ROOT = _BATCH_ROOT.parent
+_CONFIG_DIR = _BATCH_ROOT / "config"
 _REQUIRED_ENV_VARS = ("NAVER_ID", "NAVER_PW", "KAKAO_CLIENT_ID", "KAKAO_CLIENT_SECRET")
 
 
@@ -185,7 +186,7 @@ def _load_yaml(config_dir: Path) -> dict[str, Any]:
 
 def _load_env_vars(env_file: Path | None = None) -> dict[str, str]:
     """환경변수를 로딩하고 필수 키가 모두 있는지 검증한다."""
-    dotenv_path = env_file or (_PROJECT_ROOT / ".env")
+    dotenv_path = env_file or (_REPO_ROOT / ".env")
     load_dotenv(dotenv_path=dotenv_path, override=False)
 
     missing = [key for key in _REQUIRED_ENV_VARS if not os.getenv(key)]

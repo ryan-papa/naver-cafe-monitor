@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from src.crawler.parser import PostSummary
-from src.crawler.post_tracker import PostTracker
+from src.crawler.post_tracker import DbStore, PostTracker
 
 
 # ---------------------------------------------------------------------------
@@ -215,3 +215,57 @@ class TestPersistence:
         result = tracker.get_new_posts("board-S", posts)
 
         assert [p.post_id for p in result] == ["abd"]
+
+
+# ---------------------------------------------------------------------------
+# DbStore
+# ---------------------------------------------------------------------------
+
+class TestDbStore:
+    def _make_db_conn(self, rows):
+        """mock DB 연결 반환."""
+        conn = MagicMock()
+        cursor = MagicMock()
+        cursor.fetchall.return_value = rows
+        conn.cursor.return_value.__enter__ = MagicMock(return_value=cursor)
+        conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+        return conn
+
+    def test_load_returns_board_max_ids(self):
+        conn = self._make_db_conn([
+            {"board_id": "menus/6", "max_id": 100},
+            {"board_id": "menus/13", "max_id": 200},
+        ])
+        store = DbStore(conn)
+
+        result = store.load()
+
+        assert result == {"menus/6": "100", "menus/13": "200"}
+
+    def test_load_empty_table(self):
+        conn = self._make_db_conn([])
+        store = DbStore(conn)
+
+        result = store.load()
+
+        assert result == {}
+
+    def test_save_is_noop(self):
+        conn = MagicMock()
+        store = DbStore(conn)
+
+        store.save({"menus/6": "100"})
+
+        conn.cursor.assert_not_called()
+
+    def test_works_with_post_tracker(self):
+        """PostTracker와 DbStore 통합 테스트."""
+        conn = self._make_db_conn([
+            {"board_id": "menus/13", "max_id": 50},
+        ])
+        store = DbStore(conn)
+        tracker = PostTracker(store=store)
+
+        result = tracker.get_new_posts("menus/13", [_post("49"), _post("50"), _post("51")])
+
+        assert [p.post_id for p in result] == ["51"]

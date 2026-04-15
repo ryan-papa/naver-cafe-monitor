@@ -19,12 +19,21 @@ from playwright.async_api import async_playwright
 
 from src.config import load_config
 from src.crawler.image_downloader import ImageDownloader
-from src.crawler.post_tracker import JsonFileStore
+from src.crawler.post_tracker import DbStore, JsonFileStore
 from src.crawler.session import build_context, restore_cookies
 from src.messaging.kakao import KakaoMessenger
 from src.messaging.kakao_auth import KakaoAuth
 from src.notice.summarizer import Summarizer
 from src.storage.google_photos import GooglePhotosClient
+
+# shared 모듈 import (pymysql 미설치 환경에서는 graceful 폴백)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+try:
+    from shared.database import get_connection  # noqa: E402
+    from shared.post_repository import PostRepository  # noqa: E402
+    _DB_AVAILABLE = True
+except ImportError:
+    _DB_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +142,7 @@ async def _fetch_post_detail(context, post_url: str) -> dict:
 async def _process_photo_board(
     context, last_seen: dict, kakao: KakaoMessenger,
     gphotos: GooglePhotosClient, summarizer: Summarizer,
+    repo: PostRepository | None = None,
 ) -> None:
     """사진 게시판(menus/13) 처리: 이미지 다운로드 → Google Photos → 카카오톡."""
     menu_key = "menus/13"
@@ -189,6 +199,17 @@ async def _process_photo_board(
             )
             logger.info("[사진] %d장 업로드 & 전송 완료", len(tokens))
 
+        # DB 기록
+        if repo:
+            try:
+                summary_text = summarizer.summarize_short(body_text) if body_text else None
+                repo.save(
+                    board_id=menu_key, post_id=pid, title=title,
+                    summary=summary_text, image_count=len(image_urls), status="SUCCESS",
+                )
+            except Exception as e:
+                logger.error("[사진] DB 기록 실패: %s", e)
+
         max_id = max(max_id, pid)
 
     last_seen[menu_key] = max_id
@@ -197,6 +218,7 @@ async def _process_photo_board(
 async def _process_notice_board(
     context, last_seen: dict, kakao: KakaoMessenger,
     summarizer: Summarizer, gphotos: GooglePhotosClient,
+    repo: PostRepository | None = None,
 ) -> None:
     """공지사항(menus/6) 처리: 이미지 → 구글포토 + Claude 분석 → 카카오톡."""
     menu_key = "menus/6"
@@ -218,6 +240,7 @@ async def _process_notice_board(
 
         detail = await _fetch_post_detail(context, post_url)
         image_urls = _filter_image_urls(detail["images"])
+        summaries = []
 
         if image_urls:
             paths = await downloader.download_all(str(pid), image_urls)
@@ -245,21 +268,39 @@ async def _process_notice_board(
             logger.info("[공지] 이미지 없는 공지, 제목만 전송")
             kakao.send_text(f"[세화유치원 공지]\n\n📋 {title}")
 
+        # DB 기록
+        if repo:
+            try:
+                db_summary = "\n\n---\n\n".join(summaries) if summaries else None
+                repo.save(
+                    board_id=menu_key, post_id=pid, title=title,
+                    summary=db_summary,
+                    image_count=len(image_urls), status="SUCCESS",
+                )
+            except Exception as e:
+                logger.error("[공지] DB 기록 실패: %s", e)
+
         max_id = max(max_id, pid)
 
     last_seen[menu_key] = max_id
 
 
-def _load_last_seen() -> dict:
-    """last_seen.json을 로딩한다."""
-    store = JsonFileStore()
+def _load_last_seen(db_conn=None) -> dict:
+    """last_seen을 로딩한다. DB 연결 시 DB 우선, 아니면 파일."""
+    if db_conn:
+        store = DbStore(db_conn)
+    else:
+        store = JsonFileStore()
     data = store.load()
     return {k: int(v) for k, v in data.items()}
 
 
-def _save_last_seen(data: dict) -> None:
-    """last_seen.json을 저장한다."""
-    store = JsonFileStore()
+def _save_last_seen(data: dict, db_conn=None) -> None:
+    """last_seen을 저장한다. DB 모드면 no-op (개별 INSERT로 기록)."""
+    if db_conn:
+        store = DbStore(db_conn)
+    else:
+        store = JsonFileStore()
     store.save({k: str(v) for k, v in data.items()})
 
 
@@ -281,8 +322,19 @@ async def run() -> None:
     # refresh token 만료 알림 체크
     _check_refresh_token_alert(kakao_auth, kakao)
 
-    # last_seen 로딩
-    last_seen = _load_last_seen()
+    # DB 연결
+    repo = None
+    db_conn = None
+    if _DB_AVAILABLE:
+        try:
+            db_conn = get_connection()
+            repo = PostRepository(db_conn)
+            logger.info("DB 연결 성공")
+        except Exception as e:
+            logger.warning("DB 연결 실패 — 파일 모드로 폴백: %s", e)
+
+    # last_seen 로딩 (DB 우선, 파일 폴백)
+    last_seen = _load_last_seen(db_conn)
 
     async with async_playwright() as pw:
         context = await build_context(pw, headless=True)
@@ -293,10 +345,12 @@ async def run() -> None:
             sys.exit(1)
 
         try:
-            await _process_photo_board(context, last_seen, kakao, gphotos, summarizer)
-            await _process_notice_board(context, last_seen, kakao, summarizer, gphotos)
+            await _process_photo_board(context, last_seen, kakao, gphotos, summarizer, repo)
+            await _process_notice_board(context, last_seen, kakao, summarizer, gphotos, repo)
         finally:
-            _save_last_seen(last_seen)
+            _save_last_seen(last_seen, db_conn)
+            if db_conn:
+                db_conn.close()
             await context.close()
 
     logger.info("배치 완료")
