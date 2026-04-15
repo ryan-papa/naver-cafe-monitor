@@ -25,8 +25,9 @@ from urllib.parse import urlparse, parse_qs
 import requests
 from dotenv import load_dotenv
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
-_TOKEN_PATH = _PROJECT_ROOT / "config" / "kakao_token.json"
+_BATCH_ROOT = Path(__file__).resolve().parent.parent
+_REPO_ROOT = _BATCH_ROOT.parent
+_TOKEN_PATH = _BATCH_ROOT / "config" / "kakao_token.json"
 _PORT = 9999
 _REDIRECT_URI = f"http://localhost:{_PORT}/callback"
 _TOKEN_URL = "https://kauth.kakao.com/oauth/token"
@@ -88,7 +89,7 @@ def _exchange_token(client_id: str, client_secret: str, code: str) -> dict:
 
 
 def main() -> None:
-    load_dotenv(_PROJECT_ROOT / ".env")
+    load_dotenv(_REPO_ROOT / ".env")
 
     client_id = os.getenv("KAKAO_CLIENT_ID")
     client_secret = os.getenv("KAKAO_CLIENT_SECRET")

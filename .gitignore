@@ -2,35 +2,42 @@
 .env
 *.env
 
+# ── batch ──────────────────────────────────────────
+
 # Config (keep only the example)
-config/*.yaml
-!config/config.example.yaml
+batch/config/*.yaml
+!batch/config/config.example.yaml
 
 # Face reference images (personal data — keep directory via .gitkeep)
-data/faces/*
-!data/faces/.gitkeep
+batch/data/faces/*
+!batch/data/faces/.gitkeep
 
 # Google credentials & tokens
-config/google_credentials.json
-config/google_token.json
+batch/config/google_credentials.json
+batch/config/google_token.json
 
 # Kakao token
-config/kakao_token.json
+batch/config/kakao_token.json
 
 # Cookies (session data)
-data/cookies.json
+batch/data/cookies.json
 
 # Downloaded images
-data/images/
+batch/data/images/
 
 # Last seen state
-data/last_seen.json
+batch/data/last_seen.json
 
 # Logs (keep directory via .gitkeep)
-logs/*
-!logs/.gitkeep
+batch/logs/*
+!batch/logs/.gitkeep
 
-# Python artifacts
+# ── web ────────────────────────────────────────────
+web/node_modules/
+web/dist/
+web/.astro/
+
+# ── Python common ──────────────────────────────────
 __pycache__/
 **/__pycache__/
 *.pyc
@@ -57,3 +64,6 @@ htmlcov/
 # Tools
 .ruff_cache/
 .mypy_cache/
+
+# macOS
+.DS_Store

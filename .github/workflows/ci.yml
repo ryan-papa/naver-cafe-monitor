@@ -5,8 +5,11 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  batch:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: batch
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
