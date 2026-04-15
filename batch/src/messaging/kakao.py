@@ -1,0 +1,192 @@
+"""카카오 메시지 전송 모듈.
+
+카카오 REST API를 직접 호출하여 메시지를 전송한다.
+이미지는 카카오 CDN에 업로드 후 list 타입으로 묶어서 전송.
+"""
+from __future__ import annotations
+
+import json
+import logging
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+import requests
+
+if TYPE_CHECKING:
+    from src.config import Config
+    from src.messaging.kakao_auth import KakaoAuth
+
+logger = logging.getLogger(__name__)
+
+_MEMO_URL = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
+_IMAGE_UPLOAD_URL = "https://kapi.kakao.com/v2/api/talk/message/image/upload"
+_MAX_LIST_ITEMS = 3  # list 타입 최대 항목 수
+
+
+class KakaoMessenger:
+    """카카오 메시지 전송 클래스."""
+
+    def __init__(self, auth: "KakaoAuth") -> None:
+        self._auth = auth
+
+    @classmethod
+    def from_config(cls, config: "Config") -> "KakaoMessenger":
+        from src.messaging.kakao_auth import KakaoAuth
+        auth = KakaoAuth(
+            client_id=config.kakao_client_id,
+            client_secret=config.kakao_client_secret,
+        )
+        return cls(auth=auth)
+
+    @property
+    def _headers(self) -> dict[str, str]:
+        return {"Authorization": f"Bearer {self._auth.access_token}"}
+
+    def _send_template(self, template: dict) -> None:
+        data = {"template_object": json.dumps(template, ensure_ascii=False)}
+        r = requests.post(_MEMO_URL, headers=self._headers, data=data)
+        if r.status_code == 401:
+            logger.info("카카오 401 — 토큰 갱신 후 재시도")
+            self._auth.refresh()
+            r = requests.post(_MEMO_URL, headers=self._headers, data=data)
+        if r.status_code != 200:
+            logger.error("카카오 전송 실패: %s %s", r.status_code, r.text)
+            raise RuntimeError(f"카카오 전송 실패: {r.status_code} {r.text}")
+
+    def _upload_image(self, image_path: Path) -> str:
+        """이미지를 카카오 CDN에 업로드하고 URL을 반환한다."""
+        with open(image_path, "rb") as f:
+            r = requests.post(
+                _IMAGE_UPLOAD_URL,
+                headers=self._headers,
+                files={"file": (image_path.name, f, "image/jpeg")},
+            )
+        if r.status_code == 401:
+            logger.info("카카오 이미지 업로드 401 — 토큰 갱신 후 재시도")
+            self._auth.refresh()
+            with open(image_path, "rb") as f:
+                r = requests.post(
+                    _IMAGE_UPLOAD_URL,
+                    headers=self._headers,
+                    files={"file": (image_path.name, f, "image/jpeg")},
+                )
+        if r.status_code != 200:
+            raise RuntimeError(f"이미지 업로드 실패: {r.status_code} {r.text}")
+        return r.json()["infos"]["original"]["url"]
+
+    @staticmethod
+    def _to_mobile_url(url: str) -> str:
+        """네이버 카페 URL을 모바일 URL로 변환한다.
+
+        f-e/cafes/{id}/articles/{pid} → sewhakinder/{pid} 형식으로 변환.
+        """
+        import re
+        m = re.search(r"/articles/(\d+)", url)
+        if m and "cafe.naver.com" in url:
+            return f"https://m.cafe.naver.com/sewhakinder/{m.group(1)}"
+        return url
+
+    def send_text(self, message: str, link_url: str = "https://cafe.naver.com/sewhakinder", button_label: str = "") -> None:
+        """텍스트 메시지를 전송한다."""
+        mobile_url = self._to_mobile_url(link_url)
+        template: dict = {
+            "object_type": "text",
+            "text": message[:2000],
+            "link": {"web_url": link_url, "mobile_web_url": mobile_url},
+        }
+        if button_label:
+            template["buttons"] = [
+                {"title": button_label, "link": {"web_url": link_url, "mobile_web_url": mobile_url}}
+            ]
+        self._send_template(template)
+
+    def _send_chunked(self, text: str, **kwargs) -> None:
+        """2000자 초과 시 분할 전송한다."""
+        _MAX = 1900  # 여유 확보
+        if len(text) <= _MAX:
+            self.send_text(text, **kwargs)
+            return
+        # 줄바꿈 기준으로 분할
+        chunks, current = [], ""
+        for line in text.split("\n"):
+            if len(current) + len(line) + 1 > _MAX:
+                chunks.append(current)
+                current = line
+            else:
+                current = f"{current}\n{line}" if current else line
+        if current:
+            chunks.append(current)
+        for i, chunk in enumerate(chunks):
+            label = f" ({i+1}/{len(chunks)})" if len(chunks) > 1 else ""
+            self.send_text(f"{chunk}{label}", **kwargs)
+
+    def send_notice_summary(self, title: str, summary: str, post_url: str = "") -> None:
+        """공지 요약을 분할 전송한다. 전체 내용 + 일정 정리를 나눠서 전송."""
+        parts = summary.split("[일정 정리]")
+
+        content_part = parts[0].strip()
+        schedule_part = parts[1].strip() if len(parts) > 1 else ""
+
+        link = post_url or "https://cafe.naver.com/sewhakinder"
+
+        self._send_chunked(
+            f"[세화유치원 공지]\n\n📋 {title}\n\n{content_part}",
+            link_url=link,
+            button_label="카페에서 원문 보기",
+        )
+
+        if schedule_part:
+            self._send_chunked(
+                f"[세화유치원 일정]\n\n📅 {title}\n\n{schedule_part}",
+                link_url=link,
+                button_label="카페에서 원문 보기",
+            )
+
+    def send_matched_images(
+        self, title: str, image_paths: list[Path], post_url: str
+    ) -> None:
+        """매칭된 이미지를 업로드 후 list 타입으로 묶어서 전송한다."""
+        # 이미지 업로드
+        uploaded = []
+        for path in image_paths:
+            try:
+                url = self._upload_image(path)
+                uploaded.append(url)
+                logger.info("이미지 업로드: %s", path.name)
+            except Exception as e:
+                logger.warning("업로드 실패 스킵: %s — %s", path.name, e)
+
+        if not uploaded:
+            logger.warning("업로드된 이미지 없음")
+            return
+
+        # 텍스트 알림
+        self.send_text(
+            f"[세화유치원 사진]\n\n📷 {title}\n자녀 사진 {len(uploaded)}장 발견"
+        )
+
+        # list 타입으로 묶어서 전송 (최대 3장씩)
+        for batch_start in range(0, len(uploaded), _MAX_LIST_ITEMS):
+            batch = uploaded[batch_start : batch_start + _MAX_LIST_ITEMS]
+            batch_num = batch_start // _MAX_LIST_ITEMS + 1
+            total = (len(uploaded) + _MAX_LIST_ITEMS - 1) // _MAX_LIST_ITEMS
+
+            header = f"📷 {title}"
+            if total > 1:
+                header += f" ({batch_num}/{total})"
+
+            self._send_template({
+                "object_type": "list",
+                "header_title": header,
+                "header_link": {"web_url": post_url, "mobile_web_url": post_url},
+                "contents": [
+                    {
+                        "title": f"사진 {batch_start + i + 1}/{len(uploaded)}",
+                        "description": "",
+                        "image_url": url,
+                        "link": {"web_url": post_url, "mobile_web_url": post_url},
+                    }
+                    for i, url in enumerate(batch)
+                ],
+            })
+            logger.info("이미지 배치 %d/%d 전송 (%d장)", batch_num, total, len(batch))

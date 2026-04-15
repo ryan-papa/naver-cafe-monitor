@@ -1,0 +1,81 @@
+# Environment & secrets
+.env
+*.env
+
+# ── top-level runtime data (not in submodules) ─────
+config/
+data/
+logs/
+
+# ── batch ──────────────────────────────────────────
+
+# Config (keep only the example)
+batch/config/*.yaml
+!batch/config/config.example.yaml
+
+# Face reference images (personal data — keep directory via .gitkeep)
+batch/data/faces/*
+!batch/data/faces/.gitkeep
+
+# Google credentials & tokens
+batch/config/google_credentials.json
+batch/config/google_token.json
+
+# Kakao token
+batch/config/kakao_token.json
+
+# Cookies (session data)
+batch/data/cookies.json
+
+# Downloaded images
+batch/data/images/
+
+# Last seen state
+batch/data/last_seen.json
+
+# Logs (keep directory via .gitkeep)
+batch/logs/*
+!batch/logs/.gitkeep
+
+# ── web ────────────────────────────────────────────
+web/node_modules/
+web/dist/
+web/.astro/
+
+# ── Python common ──────────────────────────────────
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Build & dist
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Tools
+.ruff_cache/
+.mypy_cache/
+
+# macOS
+.DS_Store
+
+# ── deploy ─────────────────────────────────────────
+deploy/.env
+deploy/ssl/
+deploy/db-init/*-restore.sql
+deploy/db-init/*-dump.sql
+deploy/db-data/

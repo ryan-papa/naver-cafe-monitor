@@ -1,0 +1,34 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  batch:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: batch
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --upgrade pip setuptools wheel
+      - run: pip install ".[dev]"
+      - run: python -m pytest tests/ -q
+
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --upgrade pip setuptools wheel
+      - run: pip install ".[dev]"
+      - run: python -m pytest tests/ -q

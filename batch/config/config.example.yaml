@@ -1,0 +1,40 @@
+scheduler:
+  poll_interval_seconds: 300   # 5분마다 폴링
+  timezone: "Asia/Seoul"
+
+cafe:
+  cafe_id: 31672965
+  cafe_url: "https://cafe.naver.com/sewhakinder"
+  boards:
+    - name: "사진게시판"
+      menu_id: 13
+      type: "image"
+      url: "https://cafe.naver.com/f-e/cafes/31672965/menus/13"
+      face_check: true
+    - name: "공지사항"
+      menu_id: 6
+      type: "notice"
+      url: "https://cafe.naver.com/f-e/cafes/31672965/menus/6"
+      face_check: false
+
+face:
+  tolerance: 0.55               # 유사도 임계값 (낮을수록 엄격)
+  reference_dir: "data/faces/"  # 기준 이미지 폴더
+
+notification:
+  kakao:
+    enabled: true
+    recipients:
+      - type: "self"            # 본인에게 전송
+      - type: "friend"          # 배우자에게 전송
+        friend_uuid: "YOUR_FRIEND_UUID"
+
+summary:
+  enabled: true
+  model: "opus"
+  max_tokens: 300
+
+retry:
+  max_retries: 3
+  delay_seconds: 5
+  exponential_backoff: true

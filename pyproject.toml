@@ -1,0 +1,16 @@
+[project]
+name = "naver-cafe-monitor-workspace"
+version = "0.1.0"
+description = "Naver Cafe Monitor — monorepo workspace (batch / api / web)"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["batch/tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
