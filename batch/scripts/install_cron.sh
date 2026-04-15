@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # install_cron.sh — 30분마다 batch.py를 실행하는 crontab 등록
 #
-# 사용법: bash scripts/install_cron.sh
+# 사용법: bash batch/scripts/install_cron.sh
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-LOG_DIR="$PROJECT_DIR/logs"
+BATCH_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+LOG_DIR="$BATCH_DIR/logs"
 LOG_FILE="$LOG_DIR/batch.log"
-VENV_DIR="$PROJECT_DIR/.venv"
+VENV_DIR="$BATCH_DIR/.venv"
 
 # 로그 디렉터리 생성
 mkdir -p "$LOG_DIR"
@@ -22,7 +22,7 @@ if [ ! -d "$VENV_DIR" ]; then
 fi
 
 # cron 작업 정의
-CRON_CMD="*/30 * * * * cd $PROJECT_DIR && $VENV_DIR/bin/python -m src.batch >> $LOG_FILE 2>&1"
+CRON_CMD="*/30 * * * * cd $BATCH_DIR && $VENV_DIR/bin/python -m src.batch >> $LOG_FILE 2>&1"
 CRON_MARKER="# naver-cafe-monitor batch"
 
 # 기존 등록 여부 확인 후 설치
