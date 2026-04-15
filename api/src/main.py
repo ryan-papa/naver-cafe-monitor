@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Generator, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 
 # shared 모듈 import
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -18,6 +19,13 @@ from shared.database import get_connection
 from shared.post_repository import PostRepository
 
 app = FastAPI(title="Naver Cafe Monitor API", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:4321", "http://localhost:3000"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
 
 
 def get_repo() -> Generator[PostRepository, None, None]:
