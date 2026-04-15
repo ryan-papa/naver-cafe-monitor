@@ -67,6 +67,36 @@ class JsonFileStore:
             logger.error("last_seen.json 저장 실패: %s", exc)
 
 
+class DbStore:
+    """DB 기반 LastSeenStore 구현체.
+
+    posts 테이블의 board_id별 MAX(post_id)를 last_seen으로 사용한다.
+    save()는 no-op (batch.py에서 PostRepository.save()로 개별 기록).
+    """
+
+    def __init__(self, conn) -> None:
+        self._conn = conn
+
+    def load(self) -> dict[str, str]:
+        with self._conn.cursor() as cur:
+            cur.execute(
+                "SELECT board_id, MAX(post_id) AS max_id "
+                "FROM posts WHERE status = 'SUCCESS' GROUP BY board_id"
+            )
+            rows = cur.fetchall()
+        result = {}
+        for row in rows:
+            bid = row["board_id"] if isinstance(row, dict) else row[0]
+            mid = row["max_id"] if isinstance(row, dict) else row[1]
+            if mid is not None:
+                result[str(bid)] = str(mid)
+        return result
+
+    def save(self, data: dict[str, str]) -> None:
+        """DB 모드에서는 개별 INSERT로 기록하므로 no-op."""
+        pass
+
+
 # ---------------------------------------------------------------------------
 # PostTracker
 # ---------------------------------------------------------------------------

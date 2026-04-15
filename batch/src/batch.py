@@ -19,7 +19,7 @@ from playwright.async_api import async_playwright
 
 from src.config import load_config
 from src.crawler.image_downloader import ImageDownloader
-from src.crawler.post_tracker import JsonFileStore
+from src.crawler.post_tracker import DbStore, JsonFileStore
 from src.crawler.session import build_context, restore_cookies
 from src.messaging.kakao import KakaoMessenger
 from src.messaging.kakao_auth import KakaoAuth
@@ -285,16 +285,22 @@ async def _process_notice_board(
     last_seen[menu_key] = max_id
 
 
-def _load_last_seen() -> dict:
-    """last_seen.json을 로딩한다."""
-    store = JsonFileStore()
+def _load_last_seen(db_conn=None) -> dict:
+    """last_seen을 로딩한다. DB 연결 시 DB 우선, 아니면 파일."""
+    if db_conn:
+        store = DbStore(db_conn)
+    else:
+        store = JsonFileStore()
     data = store.load()
     return {k: int(v) for k, v in data.items()}
 
 
-def _save_last_seen(data: dict) -> None:
-    """last_seen.json을 저장한다."""
-    store = JsonFileStore()
+def _save_last_seen(data: dict, db_conn=None) -> None:
+    """last_seen을 저장한다. DB 모드면 no-op (개별 INSERT로 기록)."""
+    if db_conn:
+        store = DbStore(db_conn)
+    else:
+        store = JsonFileStore()
     store.save({k: str(v) for k, v in data.items()})
 
 
@@ -327,8 +333,8 @@ async def run() -> None:
         except Exception as e:
             logger.warning("DB 연결 실패 — 파일 모드로 폴백: %s", e)
 
-    # last_seen 로딩
-    last_seen = _load_last_seen()
+    # last_seen 로딩 (DB 우선, 파일 폴백)
+    last_seen = _load_last_seen(db_conn)
 
     async with async_playwright() as pw:
         context = await build_context(pw, headless=True)
@@ -342,7 +348,7 @@ async def run() -> None:
             await _process_photo_board(context, last_seen, kakao, gphotos, summarizer, repo)
             await _process_notice_board(context, last_seen, kakao, summarizer, gphotos, repo)
         finally:
-            _save_last_seen(last_seen)
+            _save_last_seen(last_seen, db_conn)
             if db_conn:
                 db_conn.close()
             await context.close()
