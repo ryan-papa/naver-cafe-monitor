@@ -153,6 +153,10 @@ async def _process_photo_board(
         logger.info("[사진] 새 게시물 없음")
         return
 
+    if last_id == 0:
+        logger.info("[사진] 최초 실행 — 최신 1건만 처리")
+        articles = [articles[-1]]
+
     downloader = ImageDownloader()
     max_id = last_id
 
@@ -228,6 +232,10 @@ async def _process_notice_board(
     if not articles:
         logger.info("[공지] 새 게시물 없음")
         return
+
+    if last_id == 0:
+        logger.info("[공지] 최초 실행 — 최신 1건만 처리")
+        articles = [articles[-1]]
 
     downloader = ImageDownloader()
     max_id = last_id

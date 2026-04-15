@@ -22,7 +22,12 @@ app = FastAPI(title="Naver Cafe Monitor API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4321", "http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:4321",
+        "http://localhost:3000",
+        "http://eepp.shop",
+        "https://eepp.shop",
+    ],
     allow_methods=["GET"],
     allow_headers=["*"],
 )
