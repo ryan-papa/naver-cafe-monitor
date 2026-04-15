@@ -1,0 +1,164 @@
+---
+const API_BASE = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>네이버 카페 모니터 — 처리 이력</title>
+		<style>
+			* { margin: 0; padding: 0; box-sizing: border-box; }
+			body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
+			.container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+			h1 { font-size: 1.5rem; margin-bottom: 20px; }
+			.filters { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+			.filters select, .filters button { padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.875rem; background: #fff; }
+			.filters button { cursor: pointer; background: #333; color: #fff; border: none; }
+			.filters button:hover { background: #555; }
+			table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+			th { background: #fafafa; font-weight: 600; text-align: left; padding: 10px 12px; font-size: 0.8rem; color: #666; border-bottom: 2px solid #eee; }
+			td { padding: 10px 12px; font-size: 0.875rem; border-bottom: 1px solid #f0f0f0; }
+			tr:hover { background: #fafafa; }
+			.status-success { color: #22c55e; font-weight: 600; }
+			.status-fail { color: #ef4444; font-weight: 600; }
+			.pagination { display: flex; gap: 8px; margin-top: 16px; justify-content: center; align-items: center; }
+			.pagination button { padding: 6px 14px; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; }
+			.pagination button:disabled { opacity: 0.4; cursor: default; }
+			.pagination span { font-size: 0.875rem; color: #666; }
+			.empty { text-align: center; padding: 40px; color: #999; }
+			.board-tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+			.board-photo { background: #dbeafe; color: #1d4ed8; }
+			.board-notice { background: #fef3c7; color: #92400e; }
+			.sort-btn { cursor: pointer; user-select: none; }
+			.sort-btn:hover { color: #333; }
+			.loading { text-align: center; padding: 40px; color: #999; }
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<h1>처리 이력</h1>
+			<div class="filters">
+				<select id="filter-board">
+					<option value="">전체 게시판</option>
+					<option value="menus/6">공지사항</option>
+					<option value="menus/13">사진</option>
+				</select>
+				<select id="filter-status">
+					<option value="">전체 상태</option>
+					<option value="SUCCESS">성공</option>
+					<option value="FAIL">실패</option>
+				</select>
+				<select id="sort-by">
+					<option value="reg_ts">처리일시순</option>
+					<option value="post_date">게시일순</option>
+					<option value="post_id">게시글번호순</option>
+				</select>
+				<select id="sort-order">
+					<option value="DESC">최신순</option>
+					<option value="ASC">오래된순</option>
+				</select>
+				<button id="btn-search">조회</button>
+			</div>
+
+			<div id="table-container">
+				<div class="loading">로딩 중...</div>
+			</div>
+
+			<div class="pagination" id="pagination"></div>
+		</div>
+
+		<script define:vars={{ API_BASE }}>
+			let currentOffset = 0;
+			const LIMIT = 20;
+
+			function boardLabel(boardId) {
+				if (boardId === 'menus/6') return '<span class="board-tag board-notice">공지</span>';
+				if (boardId === 'menus/13') return '<span class="board-tag board-photo">사진</span>';
+				return boardId;
+			}
+
+			function statusLabel(status) {
+				if (status === 'SUCCESS') return '<span class="status-success">SUCCESS</span>';
+				return '<span class="status-fail">FAIL</span>';
+			}
+
+			function formatDate(str) {
+				if (!str) return '-';
+				return str.replace('T', ' ').slice(0, 19);
+			}
+
+			async function fetchPosts(offset = 0) {
+				const boardId = document.getElementById('filter-board').value;
+				const status = document.getElementById('filter-status').value;
+				const sortBy = document.getElementById('sort-by').value;
+				const sortOrder = document.getElementById('sort-order').value;
+
+				const params = new URLSearchParams({ offset, limit: LIMIT, sort_by: sortBy, sort_order: sortOrder });
+				if (boardId) params.set('board_id', boardId);
+				if (status) params.set('status', status);
+
+				const container = document.getElementById('table-container');
+				container.innerHTML = '<div class="loading">로딩 중...</div>';
+
+				try {
+					const resp = await fetch(`${API_BASE}/api/posts?${params}`);
+					const data = await resp.json();
+					currentOffset = offset;
+					renderTable(data);
+					renderPagination(data);
+				} catch (e) {
+					container.innerHTML = `<div class="empty">API 연결 실패: ${e.message}</div>`;
+				}
+			}
+
+			function renderTable(data) {
+				const container = document.getElementById('table-container');
+				if (!data.items.length) {
+					container.innerHTML = '<div class="empty">데이터 없음</div>';
+					return;
+				}
+				let html = `<table>
+					<thead><tr>
+						<th>ID</th><th>게시판</th><th>게시글#</th><th>제목</th>
+						<th>이미지</th><th>상태</th><th>처리일시</th>
+					</tr></thead><tbody>`;
+				for (const row of data.items) {
+					html += `<tr>
+						<td>${row.id}</td>
+						<td>${boardLabel(row.board_id)}</td>
+						<td>${row.post_id}</td>
+						<td>${row.title || '-'}</td>
+						<td>${row.image_count || 0}</td>
+						<td>${statusLabel(row.status)}</td>
+						<td>${formatDate(row.reg_ts)}</td>
+					</tr>`;
+				}
+				html += '</tbody></table>';
+				container.innerHTML = html;
+			}
+
+			function renderPagination(data) {
+				const el = document.getElementById('pagination');
+				const page = Math.floor(data.offset / LIMIT) + 1;
+				const totalPages = Math.ceil(data.total / LIMIT);
+
+				el.innerHTML = `
+					<button id="btn-prev" ${data.offset <= 0 ? 'disabled' : ''}>이전</button>
+					<span>${page} / ${totalPages} (총 ${data.total}건)</span>
+					<button id="btn-next" ${data.offset + LIMIT >= data.total ? 'disabled' : ''}>다음</button>
+				`;
+
+				document.getElementById('btn-prev')?.addEventListener('click', () => fetchPosts(currentOffset - LIMIT));
+				document.getElementById('btn-next')?.addEventListener('click', () => fetchPosts(currentOffset + LIMIT));
+			}
+
+			document.getElementById('btn-search').addEventListener('click', () => fetchPosts(0));
+			document.querySelectorAll('.filters select').forEach(el => {
+				el.addEventListener('change', () => fetchPosts(0));
+			});
+
+			fetchPosts(0);
+		</script>
+	</body>
+</html>
