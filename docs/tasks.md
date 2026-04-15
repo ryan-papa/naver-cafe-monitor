@@ -38,14 +38,14 @@
 
 | ID | 설명 | PRD | 우선순위 | 상태 | 브랜치 |
 |----|------|-----|----------|------|--------|
-| T-19 | 모노레포 구조 재구성 — `src/` → `batch/src/`, `api/`, `web/`, `db/`, `shared/` 생성, import 경로 수정 | F-09 | High | Todo | `feat/T-19-monorepo-restructure` |
-| T-20 | DDL 작성 + DB/테이블 생성 — `db/ddl.sql`, eepp.shop MySQL 실행 | F-01, F-02 | High | Todo | `feat/T-20-ddl-posts-table` |
-| T-21 | shared DB 연결 모듈 — `shared/database.py` SSL 기반 연결 풀 | F-10 | High | Todo | `feat/T-21-shared-db-connection` |
-| T-22 | batch DB 기록 — 게시글 처리 시 `posts` INSERT, status(SUCCESS/FAIL) | F-03 | High | Todo | `feat/T-22-batch-db-insert` |
-| T-23 | DbStore 구현 — `LastSeenStore` Protocol DB 구현체, `MAX(post_id)` 조회 | F-04 | High | Todo | `feat/T-23-db-store-impl` |
-| T-24 | 마이그레이션 스크립트 — `last_seen.json` → DB import 후 파일 삭제 | F-05 | High | Todo | `feat/T-24-migrate-last-seen` |
-| T-25 | FastAPI 백엔드 — `GET /api/posts` (필터/정렬/페이징), `GET /api/posts/{id}` | F-06, F-07 | High | Todo | `feat/T-25-fastapi-backend` |
-| T-26 | Astro 프론트엔드 — 게시글 이력 목록 페이지 (테이블형, 필터/정렬/페이징) | F-08 | High | Todo | `feat/T-26-astro-frontend` |
+| T-19 | 모노레포 구조 재구성 — `src/` → `batch/src/`, `api/`, `web/`, `db/`, `shared/` 생성, import 경로 수정 | F-09 | High | Done | `feat/T-19-monorepo-restructure` |
+| T-20 | DDL 작성 + DB/테이블 생성 — `db/ddl.sql`, eepp.shop MySQL 실행 | F-01, F-02 | High | Done | `feat/T-20-ddl-posts-table` |
+| T-21 | shared DB 연결 모듈 — `shared/database.py` SSL 기반 연결 풀 | F-10 | High | Done | `feat/T-21-shared-db-connection` |
+| T-22 | batch DB 기록 — 게시글 처리 시 `posts` INSERT, status(SUCCESS/FAIL) | F-03 | High | Done | `feat/T-22-batch-db-insert` |
+| T-23 | DbStore 구현 — `LastSeenStore` Protocol DB 구현체, `MAX(post_id)` 조회 | F-04 | High | Done | `feat/T-23-db-store-impl` |
+| T-24 | 마이그레이션 스크립트 — `last_seen.json` → DB import 후 파일 삭제 | F-05 | High | Done | `feat/T-24-migrate-last-seen` |
+| T-25 | FastAPI 백엔드 — `GET /api/posts` (필터/정렬/페이징), `GET /api/posts/{id}` | F-06, F-07 | High | Done | `feat/T-25-fastapi-backend` |
+| T-26 | Astro 프론트엔드 — 게시글 이력 목록 페이지 (테이블형, 필터/정렬/페이징) | F-08 | High | Done | `feat/T-26-astro-frontend` |
 
 ### 의존성 그래프
 
