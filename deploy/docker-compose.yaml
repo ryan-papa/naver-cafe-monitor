@@ -1,0 +1,127 @@
+     1|     1|services:
+     2|     2|  # ─── Nginx Reverse Proxy (TLS + mTLS) ───
+     3|     3|  nginx:
+     4|     4|    image: nginx:alpine
+     5|     5|    container_name: nginx-proxy
+     6|     6|    restart: unless-stopped
+     7|     7|    ports:
+     8|     8|      - "80:80"
+     9|     9|      - "443:443"
+    10|    10|    volumes:
+    11|    11|      - ./nginx-conf/nginx.conf:/etc/nginx/nginx.conf:ro
+    12|    12|      - ./ssl/nginx/tls.crt:/etc/nginx/ssl/tls.crt:ro
+    13|    13|      - ./ssl/nginx/tls.key:/etc/nginx/ssl/tls.key:ro
+    14|    14|      - ./ssl/nginx/ca.crt:/etc/nginx/ssl/ca.crt:ro
+    15|    15|    depends_on:
+    16|    16|      - ncm-api
+    17|    17|      - ncm-web
+    18|    18|    networks:
+    19|    19|      - frontend
+    20|    20|
+    21|    21|  # ─── NCM API (FastAPI/Uvicorn) ───
+    22|    22|  ncm-api:
+    23|    23|    image: ncm-api:latest
+    24|    24|    container_name: ncm-api
+    25|    25|    restart: unless-stopped
+    26|    26|    environment:
+    27|    27|      - MYSQL_PASSWORD=***
+    28|    28|    volumes:
+    29|    29|      - ./ssl/mysql-client/ca-cert.pem:/root/.ssl/client-certs/ca-cert.pem:ro
+    30|    30|      - ./ssl/mysql-client/client-cert.pem:/root/.ssl/client-certs/client-cert.pem:ro
+    31|    31|      - ./ssl/mysql-client/client-key.pem:/root/.ssl/client-certs/client-key.pem:ro
+    32|    32|    depends_on:
+    33|    33|      mysql:
+    34|    34|        condition: service_healthy
+    35|    35|    networks:
+    36|    36|      - frontend
+    37|    37|      - backend
+    38|    38|
+    39|    39|  # ─── NCM Web (Nginx serving static) ───
+    40|    40|  ncm-web:
+    41|    41|    image: ncm-web:latest
+    42|    42|    container_name: ncm-web
+    43|    43|    restart: unless-stopped
+    44|    44|    networks:
+    45|    45|      - frontend
+    46|    46|
+    47|    47|  # ─── MySQL 8.0 ───
+    48|    48|  mysql:
+    49|    49|    image: mysql:8.0
+    50|    50|    container_name: mysql
+    51|    51|    restart: unless-stopped
+    52|    52|    ports:
+    53|    53|      - "3306:3306"
+    54|    54|    environment:
+    55|    55|      - MYSQL_ROOT_PASSWORD=${MYSQ...ORD}
+    56|    56|      - DEV_READWRITE_PWD=${DEV_READWRITE_PWD}
+    57|    57|      - ALL_READONLY_PWD=${ALL_READONLY_PWD}
+    58|    58|    command: >
+    59|    59|      --require-secure-transport=ON
+    60|    60|      --ssl-ca=/etc/mysql/ssl/ca-cert.pem
+    61|    61|      --ssl-cert=/etc/mysql/ssl/server-cert.pem
+    62|    62|      --ssl-key=/etc/mysql/ssl/server-key.pem
+    63|    63|    volumes:
+    64|    64|      - mysql-data:/var/lib/mysql
+    65|    65|      - ./ssl/mysql/ca-cert.pem:/etc/mysql/ssl/ca-cert.pem:ro
+    66|    66|      - ./ssl/mysql/server-cert.pem:/etc/mysql/ssl/server-cert.pem:ro
+    67|    67|      - ./ssl/mysql/server-key.pem:/etc/mysql/ssl/server-key.pem:ro
+    68|    68|      - ./ssl/mysql/client-cert.pem:/etc/mysql/ssl/client-cert.pem:ro
+    69|    69|      - ./ssl/mysql/client-key.pem:/etc/mysql/ssl/client-key.pem:ro
+    70|    70|      - ./db-init/mysql-init-users.sh:/docker-entrypoint-initdb.d/01-init-users.sh:ro
+    71|    71|      - ./db-init/mysql-restore.sql:/docker-entrypoint-initdb.d/02-restore.sql:ro
+    72|    72|    healthcheck:
+    73|    73|      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+    74|    74|      interval: 10s
+    75|    75|      timeout: 5s
+    76|    76|      retries: 5
+    77|    77|    networks:
+    78|    78|      - backend
+    79|    79|
+    80|    80|  # ─── PostgreSQL 16 ───
+    81|    81|  postgresql:
+    82|    82|    image: postgres:16
+    83|    83|    container_name: postgresql
+    84|    84|    restart: unless-stopped
+    85|    85|    ports:
+    86|    86|      - "5432:5432"
+    87|    87|    environment:
+    88|    88|      - POSTGRES_PASSWORD=${POST...ORD}
+    89|    89|      - POSTGRES_USER=postgres
+    90|    90|      - POSTGRES_DB=postgres
+    91|    91|      - DEV_READWRITE_PWD=${DEV_READWRITE_PWD}
+    92|    92|      - ALL_READONLY_PWD=${ALL_READONLY_PWD}
+    93|    93|      - PGDATA=/var/lib/postgresql/data/pgdata
+    94|    94|    command: >
+    95|    95|      -c ssl=on
+    96|    96|      -c ssl_ca_file=/etc/postgresql/ssl/ca-cert.pem
+    97|    97|      -c ssl_cert_file=/etc/postgresql/ssl/server-cert.pem
+    98|    98|      -c ssl_key_file=/etc/postgresql/ssl/server-key.pem
+    99|    99|      -c hba_file=/etc/postgresql/pg_hba.conf
+   100|   100|    volumes:
+   101|   101|      - postgresql-data:/var/lib/postgresql/data
+   102|   102|      - ./ssl/postgresql/ca-cert.pem:/etc/postgresql/ssl/ca-cert.pem:ro
+   103|   103|      - ./ssl/postgresql/server-cert.pem:/etc/postgresql/ssl/server-cert.pem:ro
+   104|   104|      - ./ssl/postgresql/server-key.pem:/etc/postgresql/ssl/server-key.pem:ro
+   105|   105|      - ./ssl/postgresql/client-cert.pem:/etc/postgresql/ssl/client-cert.pem:ro
+   106|   106|      - ./ssl/postgresql/client-key.pem:/etc/postgresql/ssl/client-key.pem:ro
+   107|   107|      - ./db-init/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+   108|   108|      - ./db-init/postgresql-init-users.sh:/docker-entrypoint-initdb.d/01-init-users.sh:ro
+   109|   109|      - ./db-init/postgresql-dump.sql:/docker-entrypoint-initdb.d/02-restore.sql:ro
+   110|   110|    healthcheck:
+   111|   111|      test: ["CMD-SHELL", "pg_isready -U postgres"]
+   112|   112|      interval: 10s
+   113|   113|      timeout: 5s
+   114|   114|      retries: 5
+   115|   115|    networks:
+   116|   116|      - backend
+   117|   117|
+   118|   118|volumes:
+   119|   119|  mysql-data:
+   120|   120|  postgresql-data:
+   121|   121|
+   122|   122|networks:
+   123|   123|  frontend:
+   124|   124|    driver: bridge
+   125|   125|  backend:
+   126|   126|    driver: bridge
+   127|   127|

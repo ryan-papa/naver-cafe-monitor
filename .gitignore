@@ -2,6 +2,11 @@
 .env
 *.env
 
+# ── top-level runtime data (not in submodules) ─────
+config/
+data/
+logs/
+
 # ── batch ──────────────────────────────────────────
 
 # Config (keep only the example)
@@ -67,3 +72,10 @@ htmlcov/
 
 # macOS
 .DS_Store
+
+# ── deploy ─────────────────────────────────────────
+deploy/.env
+deploy/ssl/
+deploy/db-init/*-restore.sql
+deploy/db-init/*-dump.sql
+deploy/db-data/

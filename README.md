@@ -1,40 +1,56 @@
 # naver-cafe-monitor
 
-> 세화유치원 네이버 카페 새 게시글 감지 → 얼굴 필터링 → AI 요약 → 카카오톡 알림 자동화 봇
+> 세화유치원 네이버 카페 모니터링 시스템 — 배치 크롤링 + REST API + 웹 대시보드
 
 ---
 
 ## 기능 요약
 
+| 컴포넌트 | 역할 |
+|----------|------|
+| **Batch** | 30분 주기 크롤링 → 얼굴 필터링 → AI 요약 → 카카오톡 알림 |
+| **API** | 처리 이력 조회 REST API (FastAPI/Uvicorn) |
+| **Web** | 처리 이력 대시보드 — 통계, 필터, 페이지네이션 (Astro) |
+
+### 배치 파이프라인
+
 | 게시판 | 파이프라인 | 대상 필터 |
 |--------|-----------|----------|
-| 사진게시판 (`menus/13`) | 이미지 전체 다운로드 → 얼굴 인식 필터링 → Google Photos 업로드 → sonnet 요약 → 카카오톡 전송 | 기준 얼굴 매칭 |
+| 사진게시판 (`menus/13`) | 이미지 다운로드 → 얼굴 인식 필터링 → Google Photos 업로드 → sonnet 요약 → 카카오톡 전송 | 기준 얼굴 매칭 |
 | 공지사항 (`menus/6`) | 이미지 2+3등분 병렬 분석 (opus) → 내용/일정 분리 전송 | 7세 또는 전체 대상만 |
 
 ---
 
-## 아키텍처 플로우
+## 아키텍처
 
 ```
-[cron 30분] → start.sh → batch.py
-                            │
-                ┌───────────┴───────────┐
-                ▼                       ▼
-         사진게시판(13)            공지사항(6)
-                │                       │
-      Playwright 크롤링          Playwright 크롤링
-                │                       │
-      이미지 다운로드            이미지 분할 캡처
-                │                       │
-      DeepFace 얼굴 필터      Claude CLI opus 분석
-                │                  (2+3등분 병렬)
-      Google Photos 업로드          │
-                │              대상 필터링
-      Claude CLI sonnet 요약    (7세/전체)
-                │                       │
-                └───────────┬───────────┘
-                            ▼
-                    카카오톡 메시지 발송
+                        ┌─────────────────────────────────┐
+                        │         eepp.shop (Mac Mini)     │
+                        │                                  │
+  브라우저 ──mTLS──→   nginx (443)                         │
+                        │  ├─ /naver-cafe-monitoring/api/* ─→ uvicorn (8000) ─→ MySQL
+                        │  └─ /naver-cafe-monitoring/*     ─→ static files
+                        │                                  │
+  [cron 30분] ────→   batch.py                             │
+                        │                                  │
+            ┌───────────┴───────────┐                      │
+            ▼                       ▼                      │
+     사진게시판(13)            공지사항(6)                  │
+            │                       │                      │
+   Playwright 크롤링       Playwright 크롤링               │
+            │                       │                      │
+   DeepFace 얼굴 필터    Claude opus 분석                  │
+            │               (2+3등분 병렬)                 │
+   Google Photos 업로드         │                          │
+            │             대상 필터링(7세/전체)             │
+   Claude sonnet 요약           │                          │
+            │                   │                          │
+            └───────┬───────────┘                          │
+                    ▼                                      │
+           카카오톡 메시지 발송                             │
+                    │                                      │
+                    └──→ MySQL (처리 이력 저장)             │
+                        └─────────────────────────────────┘
 ```
 
 ---
@@ -43,23 +59,25 @@
 
 | 분류 | 기술 |
 |------|------|
-| Language | Python 3.11+ |
-| Browser | Playwright (headless Chromium) |
+| Backend | Python 3.11+, FastAPI, Uvicorn |
+| Frontend | Astro, TypeScript |
+| Database | MySQL 8.0 (SSL/X509) |
+| Reverse Proxy | nginx (TLS + mTLS) |
+| Browser Automation | Playwright (headless Chromium) |
 | Face Recognition | DeepFace + dlib |
-| AI | Claude Code CLI (opus/sonnet) — API 키 불필요 |
-| HTTP | httpx |
+| AI | Claude Code CLI (opus/sonnet) |
 | Storage | Google Photos API (OAuth) |
 | Messaging | 카카오톡 REST API |
-| Auth | 네이버 쿠키 기반 세션 |
+| Infra | macOS launchd, brew services |
 
 ---
 
 ## 전제조건
 
-- Python 3.11+ (`python3.11 --version`)
-- cmake (`cmake --version`) — dlib 빌드에 필수
+- Python 3.11+
+- cmake — dlib 빌드에 필수
 - Playwright chromium
-- Claude Code CLI 설치 완료
+- Claude Code CLI
 
 ### macOS
 
@@ -106,7 +124,7 @@ python -m src.batch
 | `NAVER_ID` | 네이버 로그인 ID |
 | `NAVER_PW` | 네이버 로그인 PW |
 | `KAKAO_TOKEN` | 카카오 REST API 토큰 |
-| `ANTHROPIC_API_KEY` | (미사용 — CLI 기반) |
+| `MYSQL_PASSWORD` | MySQL 접속 비밀번호 |
 | `CONFIG_PATH` | 설정 파일 경로 (기본: `config/config.yaml`) |
 | `LOG_LEVEL` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
 
@@ -149,36 +167,75 @@ crontab -e
 
 ---
 
+## 배포 (macOS 네이티브)
+
+Mac Mini (`eepp.shop`)에서 Docker 없이 brew + launchd로 운영한다.
+
+### 서비스 구성
+
+| 서비스 | 실행 방식 | 포트 | 관리 |
+|--------|-----------|------|------|
+| MySQL 8.0 | `brew services` | 3306 | `brew services restart mysql@8.0` |
+| nginx | launchd (`dev.eepp.nginx`) | 80, 443 | `sudo launchctl stop dev.eepp.nginx` |
+| API (uvicorn) | launchd (`dev.eepp.naver-cafe-monitor-api`) | 8000 | `launchctl stop dev.eepp.naver-cafe-monitor-api` |
+| Web (static) | nginx에서 직접 서빙 | — | `/opt/homebrew/var/www/naver-cafe-monitoring/` |
+
+### SSL/mTLS
+
+- nginx: TLS 종단 + 클라이언트 인증서 검증 (mTLS)
+- MySQL: `require_secure_transport=ON`, X509 클라이언트 인증
+
+### 라우팅
+
+```
+https://eepp.shop/naver-cafe-monitoring/api/*  → 127.0.0.1:8000/api/*  (uvicorn)
+https://eepp.shop/naver-cafe-monitoring/*      → static files           (nginx)
+http://*                                       → 301 → https
+```
+
+### Web 빌드 & 배포
+
+```bash
+cd web && npm ci && PUBLIC_API_URL=/naver-cafe-monitoring npm run build
+sudo cp -r dist/* /opt/homebrew/var/www/naver-cafe-monitoring/
+sudo nginx -s reload
+```
+
+---
+
 ## 프로젝트 구조
 
 ```
-src/
-├── batch.py            # 배치 진입점
-├── config.py           # 설정 로더
-├── crawler/
-│   ├── login.py        # 네이버 로그인·쿠키 관리
-│   ├── naver_cafe.py   # 카페 크롤러
-│   ├── parser.py       # 게시글 파싱
-│   ├── image_downloader.py
-│   ├── post_tracker.py # 중복 게시글 추적
-│   ├── session.py      # 세션 관리
-│   └── urls.py         # URL 상수
-├── face/
-│   ├── cli.py          # 얼굴 등록 CLI
-│   ├── encoder.py      # 얼굴 인코딩
-│   └── filter.py       # 얼굴 매칭 필터
-├── messaging/
-│   └── kakao.py        # 카카오톡 발송
-├── notice/
-│   ├── extractor.py    # 공지 텍스트 추출
-│   └── summarizer.py   # AI 요약
-├── scheduler/          # 스케줄러
-└── storage/
-    └── google_photos.py # Google Photos 업로드
-scripts/
-├── start.sh            # 배치 실행
-└── install_cron.sh     # cron 등록
-config/
-└── config.example.yaml
-tests/                  # 단위 테스트
+naver-cafe-monitor/
+├── api/                    # FastAPI 백엔드
+│   ├── src/main.py         # API 진입점 (uvicorn)
+│   ├── requirements.txt
+│   └── tests/
+├── batch/                  # 배치 크롤러
+│   ├── src/
+│   │   ├── batch.py        # 배치 진입점
+│   │   ├── config.py       # 설정 로더
+│   │   ├── crawler/        # 네이버 크롤링 (login, parser, session)
+│   │   ├── face/           # 얼굴 인식 (DeepFace, cli, filter)
+│   │   ├── messaging/      # 카카오톡 발송
+│   │   ├── notice/         # 공지 추출·요약
+│   │   ├── scheduler/      # 스케줄러 (pipeline, poller, retry)
+│   │   └── storage/        # Google Photos 업로드
+│   ├── scripts/            # start.sh, install_cron.sh
+│   ├── config/             # config.example.yaml
+│   └── tests/
+├── web/                    # Astro 프론트엔드
+│   ├── src/pages/
+│   ├── astro.config.mjs
+│   └── package.json
+├── shared/                 # API·배치 공통 모듈
+│   ├── database.py         # MySQL SSL 연결
+│   └── post_repository.py  # DB 쿼리
+├── deploy/                 # 배포 설정 참고용
+│   ├── docker-compose.yaml
+│   ├── nginx-conf/
+│   └── db-init/
+├── db/                     # DDL, 마이그레이션
+├── docs/prd/               # PRD 문서
+└── .github/workflows/      # CI (PR 체크)
 ```
