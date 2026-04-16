@@ -59,3 +59,23 @@ T-19 (모노레포 구조)
       └── T-25 (FastAPI)
            └── T-26 (Astro 프론트)
 ```
+
+## 대시보드 디자인 개선 + 카톡 재발송
+
+**PRD:** `docs/prd/20260416_150000_dashboard-redesign-resend_a4f8k2m7.md`
+**통합 브랜치:** `feat/dashboard-redesign-resend`
+
+| ID | 설명 | PRD | 우선순위 | 상태 | 브랜치 |
+|----|------|-----|----------|------|--------|
+| T-27 | 대시보드 CSS 모노크롬 리디자인 | F-01~F-06 | High | Todo | `feat/dashboard-redesign-resend` |
+| T-28 | 재발송 API 엔드포인트 구현 | F-08~F-10 | High | Todo | `feat/dashboard-redesign-resend` |
+| T-29 | 프론트엔드 재발송 버튼 + 토스트 + 쿨다운 | F-07, F-11, F-12 | High | Todo | `feat/dashboard-redesign-resend` |
+| T-30 | 테스트 작성 | F-08~F-10 | High | Todo | `feat/dashboard-redesign-resend` |
+
+### 의존성 그래프
+
+```
+T-27 (CSS 리디자인) ─────────────────┐
+T-28 (재발송 API) ──┬── T-29 (프론트) ├── 완료
+                    └── T-30 (테스트) ┘
+```

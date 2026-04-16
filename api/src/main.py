@@ -4,6 +4,8 @@
 """
 from __future__ import annotations
 
+import logging
+import os
 import sys
 from pathlib import Path
 from typing import Generator, Optional
@@ -11,12 +13,15 @@ from typing import Generator, Optional
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-# shared 모듈 import
+# shared + batch 모듈 import
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_REPO_ROOT))
+sys.path.insert(0, str(_REPO_ROOT / "batch"))
 
 from shared.database import get_connection
 from shared.post_repository import PostRepository
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Naver Cafe Monitor API", version="0.1.0")
 
@@ -28,7 +33,7 @@ app.add_middleware(
         "http://eepp.shop",
         "https://eepp.shop",
     ],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -84,3 +89,52 @@ def get_post(record_id: int, repo: PostRepository = Depends(get_repo)):
             row[key] = str(row[key])
 
     return row
+
+
+def _get_kakao_messenger():
+    """KakaoMessenger 인스턴스를 생성한다."""
+    from src.messaging.kakao_auth import KakaoAuth
+    from src.messaging.kakao import KakaoMessenger
+
+    client_id = os.environ.get("KAKAO_CLIENT_ID", "")
+    client_secret = os.environ.get("KAKAO_CLIENT_SECRET", "")
+    if not client_id or not client_secret:
+        raise HTTPException(status_code=500, detail="카카오 인증 정보가 설정되지 않았습니다")
+
+    auth = KakaoAuth(client_id=client_id, client_secret=client_secret)
+    return KakaoMessenger(auth=auth)
+
+
+@app.post("/api/posts/{record_id}/resend")
+def resend_post(record_id: int, repo: PostRepository = Depends(get_repo)):
+    """게시글 카카오톡 알림을 재발송한다."""
+    row = repo.find_by_id(record_id)
+
+    if not row:
+        raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다")
+
+    if row.get("status") != "SUCCESS":
+        raise HTTPException(status_code=400, detail="SUCCESS 상태의 게시글만 재발송할 수 있습니다")
+
+    summary = row.get("summary")
+    if not summary or not summary.strip():
+        raise HTTPException(status_code=400, detail="발송할 내용(summary)이 없습니다")
+
+    title = row.get("title", "")
+    board_id = row.get("board_id", "")
+    post_id = row.get("post_id", 0)
+    post_url = f"https://m.cafe.naver.com/sewhakinder/{post_id}"
+
+    messenger = _get_kakao_messenger()
+
+    if board_id == "menus/6":
+        messenger.send_notice_summary(title=title, summary=summary, post_url=post_url)
+    else:
+        messenger._send_chunked(
+            f"[재발송] {title}\n\n{summary}",
+            link_url=post_url,
+            button_label="카페에서 원문 보기",
+        )
+
+    logger.info("재발송 완료: id=%d board=%s post=%d", record_id, board_id, post_id)
+    return {"status": "ok", "message": "카카오톡 발송 완료"}

@@ -89,3 +89,68 @@ class TestGetPost:
 
         resp = c.get("/api/posts/999")
         assert resp.status_code == 404
+
+
+class TestResendPost:
+    def _row(self, **overrides):
+        base = {
+            "id": 1, "board_id": "menus/6", "post_id": 100,
+            "title": "공지 테스트", "summary": "요약 내용\n\n[일정 정리]\n4/20 행사",
+            "reg_ts": datetime(2026, 4, 15), "upd_ts": datetime(2026, 4, 15),
+            "post_date": None, "status": "SUCCESS", "image_count": 0,
+        }
+        base.update(overrides)
+        return base
+
+    @patch("api.src.main._get_kakao_messenger")
+    def test_resend_notice_success(self, mock_get_messenger, client):
+        c, mock_repo = client
+        mock_repo.find_by_id.return_value = self._row()
+        messenger = MagicMock()
+        mock_get_messenger.return_value = messenger
+
+        resp = c.post("/api/posts/1/resend")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "ok"
+        messenger.send_notice_summary.assert_called_once()
+
+    @patch("api.src.main._get_kakao_messenger")
+    def test_resend_photo_success(self, mock_get_messenger, client):
+        c, mock_repo = client
+        mock_repo.find_by_id.return_value = self._row(board_id="menus/13", summary="사진 요약")
+        messenger = MagicMock()
+        mock_get_messenger.return_value = messenger
+
+        resp = c.post("/api/posts/1/resend")
+        assert resp.status_code == 200
+        messenger._send_chunked.assert_called_once()
+
+    def test_resend_404_not_found(self, client):
+        c, mock_repo = client
+        mock_repo.find_by_id.return_value = None
+
+        resp = c.post("/api/posts/999/resend")
+        assert resp.status_code == 404
+
+    def test_resend_400_fail_status(self, client):
+        c, mock_repo = client
+        mock_repo.find_by_id.return_value = self._row(status="FAIL")
+
+        resp = c.post("/api/posts/1/resend")
+        assert resp.status_code == 400
+        assert "SUCCESS" in resp.json()["detail"]
+
+    def test_resend_400_empty_summary(self, client):
+        c, mock_repo = client
+        mock_repo.find_by_id.return_value = self._row(summary="")
+
+        resp = c.post("/api/posts/1/resend")
+        assert resp.status_code == 400
+        assert "summary" in resp.json()["detail"]
+
+    def test_resend_400_null_summary(self, client):
+        c, mock_repo = client
+        mock_repo.find_by_id.return_value = self._row(summary=None)
+
+        resp = c.post("/api/posts/1/resend")
+        assert resp.status_code == 400
