@@ -1,7 +1,7 @@
 """1회 실행 배치 스크립트.
 
 cron으로 30분마다 호출되어 새 게시물을 확인하고 처리한다.
-- 사진 게시판(menus/13): 이미지 다운로드 → Google Photos 업로드 → 카카오톡 링크 전송
+- 사진 게시판(menus/13): 새 게시물 감지 → 카카오톡 알림 (전달사항 + 사진 장수)
 - 공지사항(menus/6): 이미지 다운로드 → Claude CLI 분석 → 카카오톡 요약 전송
 
 실행: python -m src.batch
@@ -141,10 +141,10 @@ async def _fetch_post_detail(context, post_url: str) -> dict:
 
 async def _process_photo_board(
     context, last_seen: dict, kakao: KakaoMessenger,
-    gphotos: GooglePhotosClient, summarizer: Summarizer,
+    summarizer: Summarizer,
     repo: PostRepository | None = None,
 ) -> None:
-    """사진 게시판(menus/13) 처리: 이미지 다운로드 → Google Photos → 카카오톡."""
+    """사진 게시판(menus/13) 처리: 새 게시물 감지 → 카카오톡 알림."""
     menu_key = "menus/13"
     last_id = int(last_seen.get(menu_key, 0))
     articles = await _fetch_new_articles(context, "13", last_id)
@@ -157,51 +157,32 @@ async def _process_photo_board(
         logger.info("[사진] 최초 실행 — 최신 1건만 처리")
         articles = [articles[-1]]
 
-    downloader = ImageDownloader()
     max_id = last_id
 
     for article in articles:
         pid = article["post_id"]
         title = article["title"]
+        post_link = article["url"]
         logger.info("[사진] 새 게시물: #%d %s", pid, title)
 
-        detail = await _fetch_post_detail(context, article["url"])
+        detail = await _fetch_post_detail(context, post_link)
         image_urls = _filter_image_urls(detail["images"])
         body_text = detail["text"]
+        photo_count = len(image_urls)
 
-        if not image_urls:
-            logger.info("[사진] 이미지 없음, 스킵")
-            max_id = max(max_id, pid)
-            continue
+        # 카카오톡 알림 (전달사항 + 사진 정보 통합 1건)
+        if body_text:
+            notice = summarizer.summarize_short(body_text)
+            msg = f"[세화유치원 사진]\n\n📝 {title}\n\n{notice}"
+            if photo_count:
+                msg += f"\n\n📷 사진 {photo_count}장"
+        elif photo_count:
+            msg = f"[세화유치원 사진]\n\n📷 {title}\n사진 {photo_count}장"
+        else:
+            msg = f"[세화유치원 사진]\n\n📷 {title}"
 
-        paths = await downloader.download_all(str(pid), image_urls)
-        if not paths:
-            max_id = max(max_id, pid)
-            continue
-
-        # Google Photos 업로드
-        tokens = gphotos.upload_images(paths)
-        if tokens:
-            gphotos.add_to_album(_PHOTO_ALBUM_ID, tokens)
-
-            post_link = article["url"]
-
-            # 전달사항 먼저
-            if body_text:
-                notice = summarizer.summarize_short(body_text)
-                kakao.send_text(
-                    f"[세화유치원 전달사항]\n\n📝 {title}\n\n{notice}",
-                    link_url=post_link,
-                    button_label="카페에서 보기",
-                )
-
-            # 사진 업로드 알림
-            kakao.send_text(
-                f"[세화유치원 사진]\n\n📷 {title}\n사진 {len(tokens)}장 업로드 완료",
-                link_url=post_link,
-                button_label="카페에서 보기",
-            )
-            logger.info("[사진] %d장 업로드 & 전송 완료", len(tokens))
+        kakao.send_text(msg, link_url=post_link, button_label="카페에서 보기")
+        logger.info("[사진] 알림 전송 완료: #%d", pid)
 
         # DB 기록
         if repo:
@@ -209,7 +190,7 @@ async def _process_photo_board(
                 summary_text = summarizer.summarize_short(body_text) if body_text else None
                 repo.save(
                     board_id=menu_key, post_id=pid, title=title,
-                    summary=summary_text, image_count=len(image_urls), status="SUCCESS",
+                    summary=summary_text, image_count=photo_count, status="SUCCESS",
                 )
             except Exception as e:
                 logger.error("[사진] DB 기록 실패: %s", e)
@@ -353,7 +334,7 @@ async def run() -> None:
             sys.exit(1)
 
         try:
-            await _process_photo_board(context, last_seen, kakao, gphotos, summarizer, repo)
+            await _process_photo_board(context, last_seen, kakao, summarizer, repo)
             await _process_notice_board(context, last_seen, kakao, summarizer, gphotos, repo)
         finally:
             _save_last_seen(last_seen, db_conn)
