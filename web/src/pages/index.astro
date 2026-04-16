@@ -1,7 +1,6 @@
 ---
-import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.min.css";
-const API_BASE = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 ---
 
 <html lang="ko">
@@ -12,185 +11,297 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 		<meta name="description" content="네이버 카페 게시글 모니터링 처리 이력" />
 		<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 		<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard-dynamic-subset.min.css" rel="stylesheet" />
-		<style>
+		<style is:global>
+			*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
 			:root {
-				--bg-main: #ffffff;
+				--color-primary: #2e8555;
+				--color-primary-light: #33925d;
+				--color-primary-lightest: #e6f6ed;
+				--color-danger: #e3342f;
+				--color-danger-light: #fef2f2;
+				--color-warning: #e67e22;
+				--color-warning-light: #fef9f0;
+				--color-info: #3578e5;
+				--color-info-light: #eef4fd;
+				--bg-main: #f6f8fa;
 				--bg-surface: #ffffff;
-				--border-color: #dcdcdc;
-				--border-light: #f0f0f0;
-				--text-primary: #000000;
-				--text-secondary: #666666;
-				--text-tertiary: #999999;
-				--badge-notice-bg: #fff4e6; --badge-notice-fg: #d9480f;
-				--badge-photo-bg: #e7f5ff; --badge-photo-fg: #1971c2;
-				--badge-ok-bg: #d3f9d8; --badge-ok-fg: #2b8a3e;
-				--badge-fail-bg: #ffe3e3; --badge-fail-fg: #c92a2a;
+				--border-color: #e3e8ee;
+				--border-light: #f0f2f5;
+				--text-primary: #1c1e21;
+				--text-secondary: #606770;
+				--text-tertiary: #8d949e;
+				--shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+				--shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+				--shadow-lg: 0 8px 24px rgba(0,0,0,0.08);
+				--radius: 12px;
+				--radius-sm: 8px;
 			}
+
 			body {
 				font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 				background: var(--bg-main); color: var(--text-primary);
-				line-height: 1.5;
+				line-height: 1.6; font-size: 14px;
 			}
+
+			.container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
 
 			/* ── 네비게이션 ── */
-			.top-bar {
-				background: var(--bg-surface); border-bottom: 1px solid var(--border-color);
-				padding: 16px 0;
+			.navbar {
+				background: var(--bg-surface);
+				border-bottom: 1px solid var(--border-color);
+				padding: 0 24px;
+				height: 60px;
+				display: flex; align-items: center; justify-content: center;
+				position: sticky; top: 0; z-index: 100;
+				box-shadow: var(--shadow-sm);
 			}
-			.top-bar .brand { font-weight: 700; font-size: 1rem; color: var(--text-primary); text-decoration: none; letter-spacing: -0.01em; }
-			.top-bar .brand i { color: var(--text-primary); }
-			.top-bar .ts { font-size: 0.75rem; color: var(--text-tertiary); }
+			.navbar-inner {
+				max-width: 960px; width: 100%;
+				display: flex; align-items: center; justify-content: space-between;
+			}
+			.brand {
+				display: flex; align-items: center; gap: 10px;
+				font-weight: 800; font-size: 1.05rem; color: var(--text-primary);
+				text-decoration: none; letter-spacing: -0.02em;
+			}
+			.brand-icon {
+				width: 32px; height: 32px; border-radius: 8px;
+				background: var(--color-primary); color: #fff;
+				display: flex; align-items: center; justify-content: center;
+				font-size: 1rem;
+			}
+			.navbar .ts {
+				font-size: 0.75rem; color: var(--text-tertiary);
+				background: var(--bg-main); padding: 4px 12px; border-radius: 20px;
+			}
 
 			/* ── 통계 ── */
+			.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
 			.stat-card {
-				background: var(--bg-surface); border-radius: 8px; padding: 18px 20px;
-				border: 1px solid var(--border-color); border-left: 3px solid transparent;
+				background: var(--bg-surface); border-radius: var(--radius); padding: 18px 24px;
+				box-shadow: var(--shadow-sm); border: 1px solid var(--border-color);
+				transition: box-shadow 0.2s, transform 0.2s;
+				display: flex; align-items: center; gap: 14px;
 			}
-			.stat-card .num { font-size: 1.5rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
-			.stat-card .lbl { font-size: 0.75rem; color: var(--text-tertiary); margin-top: 6px; }
-			.stat-total { border-left-color: var(--text-primary); }
+			.stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+			.stat-icon {
+				width: 36px; height: 36px; border-radius: 10px;
+				display: flex; align-items: center; justify-content: center;
+				font-size: 1rem; flex-shrink: 0;
+			}
+			.stat-icon-total { background: #f0f0f5; color: var(--text-primary); }
+			.stat-icon-ok { background: var(--color-primary-lightest); color: var(--color-primary); }
+			.stat-icon-fail { background: var(--color-danger-light); color: var(--color-danger); }
+			.stat-card .lbl { font-size: 0.82rem; color: var(--text-tertiary); font-weight: 500; }
+			.stat-card .num {
+				font-size: 1.4rem; font-weight: 800; line-height: 1;
+				font-variant-numeric: tabular-nums; margin-left: auto;
+			}
 			.stat-total .num { color: var(--text-primary); }
-			.stat-ok { border-left-color: #2b8a3e; }
-			.stat-ok .num { color: #2b8a3e; }
-			.stat-fail { border-left-color: #c92a2a; }
-			.stat-fail .num { color: #c92a2a; }
+			.stat-ok .num { color: var(--color-primary); }
+			.stat-fail .num { color: var(--color-danger); }
 
 			/* ── 필터 ── */
-			.filter-row { background: var(--bg-surface); border-radius: 8px; padding: 12px 16px; border: 1px solid var(--border-color); }
-			.filter-row .form-select {
-				font-size: 0.82rem; border-color: var(--border-color); border-radius: 6px;
-				padding: 6px 32px 6px 10px; color: var(--text-primary);
+			.filter-bar {
+				display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;
 			}
-			.filter-row .form-select:focus { border-color: var(--text-primary); box-shadow: 0 0 0 1px var(--text-primary); }
+			.filter-select {
+				font-size: 0.82rem; font-weight: 500; font-family: inherit;
+				border: 1px solid var(--border-color); border-radius: var(--radius-sm);
+				padding: 8px 36px 8px 14px; color: var(--text-primary);
+				background: var(--bg-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238d949e' d='M2.5 4.5L6 8l3.5-3.5'/%3E%3C/svg%3E") no-repeat right 12px center;
+				appearance: none; cursor: pointer;
+				transition: border-color 0.15s, box-shadow 0.15s;
+			}
+			.filter-select:hover { border-color: var(--color-primary); }
+			.filter-select:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(46,133,85,0.1); }
 
 			/* ── 테이블 카드 ── */
-			.data-card { background: var(--bg-surface); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; }
-			.table { margin-bottom: 0; font-size: 0.875rem; }
-			.table thead th {
+			.data-card {
+				background: var(--bg-surface); border-radius: var(--radius);
+				border: 1px solid var(--border-color); overflow: hidden;
+				box-shadow: var(--shadow-sm);
+			}
+			.data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+			.data-table thead th {
 				font-size: 0.7rem; font-weight: 700; color: var(--text-tertiary);
 				letter-spacing: 0.06em; text-transform: uppercase;
-				padding: 12px 16px; background: #fafafa; border-bottom: 1px solid var(--border-color);
+				padding: 14px 20px; background: #fafbfc; border-bottom: 1px solid var(--border-color);
+				text-align: left;
 			}
-			.table tbody td { padding: 14px 16px; vertical-align: middle; border-bottom: 1px solid var(--border-light); }
-			.table tbody tr:last-child td { border-bottom: 0; }
-			.table-hover tbody tr:hover { background: #fafafa; }
+			.data-table tbody td {
+				padding: 16px 20px; vertical-align: middle;
+				border-bottom: 1px solid var(--border-light);
+			}
+			.data-table tbody tr:last-child td { border-bottom: 0; }
+			.data-table tbody tr { transition: background 0.12s; }
+			.data-table tbody tr:hover { background: #f8fafb; }
 
 			/* ── 배지 ── */
-			.b { display: inline-block; padding: 3px 9px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.01em; }
-			.b-notice { background: var(--badge-notice-bg); color: var(--badge-notice-fg); }
-			.b-photo { background: var(--badge-photo-bg); color: var(--badge-photo-fg); }
-			.b-ok { background: var(--badge-ok-bg); color: var(--badge-ok-fg); }
-			.b-fail { background: var(--badge-fail-bg); color: var(--badge-fail-fg); }
+			.badge {
+				display: inline-flex; align-items: center; gap: 4px;
+				padding: 4px 10px; border-radius: 20px;
+				font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em;
+			}
+			.badge-notice { background: var(--color-warning-light); color: var(--color-warning); }
+			.badge-photo { background: var(--color-info-light); color: var(--color-info); }
+			.badge-ok { background: var(--color-primary-lightest); color: var(--color-primary); }
+			.badge-fail { background: var(--color-danger-light); color: var(--color-danger); }
 
 			/* ── 셀 ── */
 			.c-title { font-weight: 600; color: var(--text-primary); }
-			.c-pid { font-size: 0.75rem; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
-			.c-img { font-size: 0.82rem; color: var(--text-secondary); }
+			.c-pid { font-size: 0.78rem; color: var(--text-tertiary); font-variant-numeric: tabular-nums; font-weight: 500; }
+			.c-img { font-size: 0.82rem; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px; }
 			.c-date { font-size: 0.8rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 			/* ── 재발송 버튼 ── */
+			.resend-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 			.btn-resend {
-				font-size: 0.72rem; font-weight: 600; padding: 3px 10px; border-radius: 6px;
-				border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary);
-				cursor: pointer; transition: background 0.15s, border-color 0.15s;
-				white-space: nowrap;
+				font-size: 0.75rem; font-weight: 600; font-family: inherit;
+				padding: 6px 14px; border-radius: 8px;
+				border: none; background: var(--color-primary); color: #fff;
+				cursor: pointer; transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+				white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;
 			}
-			.btn-resend:hover:not(:disabled) { background: #f5f5f5; border-color: var(--text-primary); }
-			.btn-resend:disabled { opacity: 0.4; cursor: not-allowed; }
-			.btn-resend .spinner-border { width: 0.7rem; height: 0.7rem; border-width: 0.12em; }
+			.btn-resend:hover:not(:disabled) {
+				background: var(--color-primary-light);
+				box-shadow: 0 2px 8px rgba(46,133,85,0.3);
+				transform: translateY(-1px);
+			}
+			.btn-resend:active:not(:disabled) { transform: translateY(0); }
+			.btn-resend:disabled { cursor: not-allowed; }
+			.btn-resend.is-loading { background: var(--color-info); }
+			.btn-resend.is-cooldown { background: var(--text-tertiary); }
+			.btn-resend .spinner {
+				width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3);
+				border-top-color: #fff; border-radius: 50%;
+				display: inline-block; animation: spin 0.6s linear infinite;
+			}
+			@keyframes spin { to { transform: rotate(360deg); } }
+			.resend-hint { font-size: 0.68rem; color: var(--text-tertiary); white-space: nowrap; }
 
 			/* ── 토스트 ── */
 			.toast-container {
-				position: fixed; top: 20px; right: 20px; z-index: 9999;
+				position: fixed; top: 76px; right: 24px; z-index: 9999;
 				display: flex; flex-direction: column; gap: 8px;
 			}
 			.toast-msg {
-				padding: 12px 20px; border-radius: 8px; font-size: 0.82rem; font-weight: 600;
-				border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary);
-				box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-				animation: toast-in 0.25s ease-out;
+				padding: 12px 20px; border-radius: var(--radius-sm);
+				font-size: 0.82rem; font-weight: 600;
+				background: var(--bg-surface); color: var(--text-primary);
+				box-shadow: var(--shadow-lg);
+				animation: toast-in 0.3s cubic-bezier(0.21,1.02,0.73,1);
+				display: flex; align-items: center; gap: 8px;
 			}
-			.toast-msg.toast-ok { border-left: 3px solid #2b8a3e; }
-			.toast-msg.toast-err { border-left: 3px solid #c92a2a; }
-			@keyframes toast-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+			.toast-msg.toast-ok::before { content: '\2713'; color: var(--color-primary); font-weight: 700; }
+			.toast-msg.toast-err::before { content: '\2717'; color: var(--color-danger); font-weight: 700; }
+			@keyframes toast-in { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 
 			/* ── 빈 상태 / 로딩 ── */
 			.state-box {
 				display: flex; flex-direction: column; align-items: center; justify-content: center;
 				text-align: center; padding: 80px 20px; min-height: 320px;
 			}
-			.state-box .ico { font-size: 2.5rem; color: #dcdcdc; margin-bottom: 12px; }
-			.state-box h6 { font-weight: 700; margin-bottom: 4px; }
+			.state-box .ico { font-size: 2.5rem; color: #d0d5dd; margin-bottom: 16px; }
+			.state-box h6 { font-weight: 700; margin-bottom: 4px; font-size: 1rem; }
 			.state-box p { font-size: 0.85rem; color: var(--text-tertiary); }
+			.loader {
+				width: 28px; height: 28px; border: 3px solid var(--border-color);
+				border-top-color: var(--color-primary); border-radius: 50%;
+				animation: spin 0.7s linear infinite; margin-bottom: 16px;
+			}
 
 			/* ── 페이징 ── */
-			.paging .page-link { font-size: 0.82rem; border-radius: 6px; border-color: var(--border-color); color: var(--text-primary); }
-			.paging .page-link:hover { background: #f5f5f5; }
-			.paging .page-item.disabled .page-link { color: #ccc; }
+			.paging { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 20px; }
+			.page-btn {
+				font-size: 0.82rem; font-weight: 600; font-family: inherit;
+				padding: 8px 16px; border-radius: var(--radius-sm);
+				border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary);
+				cursor: pointer; transition: all 0.15s; text-decoration: none;
+				display: inline-flex; align-items: center; gap: 4px;
+			}
+			.page-btn:hover:not(.page-btn-disabled) { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-lightest); }
+			.page-btn-disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+			.page-info { font-size: 0.82rem; color: var(--text-tertiary); font-weight: 500; padding: 0 8px; }
+
+			/* ── 반응형 ── */
+			@media (max-width: 768px) {
+				.stats { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+				.stat-card { padding: 14px 16px; }
+				.stat-card .num { font-size: 1.3rem; }
+				.stat-icon { width: 30px; height: 30px; font-size: 0.85rem; }
+				.data-table .col-hide { display: none; }
+				.data-table thead th, .data-table tbody td { padding: 12px 14px; }
+				.container { padding: 0 16px; }
+			}
 		</style>
 	</head>
 	<body>
 		<div class="toast-container" id="toast-container"></div>
-		<div class="top-bar">
-			<div class="container d-flex align-items-center justify-content-between">
-				<a class="brand" href="/"><i class="bi bi-clipboard2-data me-1"></i> 카페 모니터</a>
+
+		<nav class="navbar">
+			<div class="navbar-inner">
+				<a class="brand" href="/naver-cafe-monitoring/">
+					<span class="brand-icon"><i class="bi bi-clipboard2-data"></i></span>
+					카페 모니터
+				</a>
 				<span class="ts" id="last-updated"></span>
 			</div>
-		</div>
+		</nav>
 
-		<main class="container py-4">
+		<main class="container" style="padding-top:28px; padding-bottom:40px;">
 			<!-- 통계 -->
-			<div class="row g-3 mb-3">
-				<div class="col-4"><div class="stat-card stat-total"><div class="num" id="stat-total">-</div><div class="lbl">전체</div></div></div>
-				<div class="col-4"><div class="stat-card stat-ok"><div class="num" id="stat-success">-</div><div class="lbl">성공</div></div></div>
-				<div class="col-4"><div class="stat-card stat-fail"><div class="num" id="stat-fail">-</div><div class="lbl">실패</div></div></div>
+			<div class="stats">
+				<div class="stat-card stat-total">
+					<span class="stat-icon stat-icon-total"><i class="bi bi-collection"></i></span>
+					<span class="lbl">전체</span><span class="num" id="stat-total">-</span>
+				</div>
+				<div class="stat-card stat-ok">
+					<span class="stat-icon stat-icon-ok"><i class="bi bi-check-circle"></i></span>
+					<span class="lbl">성공</span><span class="num" id="stat-success">-</span>
+				</div>
+				<div class="stat-card stat-fail">
+					<span class="stat-icon stat-icon-fail"><i class="bi bi-exclamation-circle"></i></span>
+					<span class="lbl">실패</span><span class="num" id="stat-fail">-</span>
+				</div>
 			</div>
 
 			<!-- 필터 -->
-			<div class="filter-row mb-3">
-				<div class="row g-2 align-items-center" role="search" aria-label="필터">
-					<div class="col-auto">
-						<select class="form-select form-select-sm" id="filter-board" aria-label="게시판">
-							<option value="">전체 게시판</option>
-							<option value="menus/6">공지사항</option>
-							<option value="menus/13">사진</option>
-						</select>
-					</div>
-					<div class="col-auto">
-						<select class="form-select form-select-sm" id="filter-status" aria-label="상태">
-							<option value="">전체 상태</option>
-							<option value="SUCCESS">성공</option>
-							<option value="FAIL">실패</option>
-						</select>
-					</div>
-					<div class="col-auto">
-						<select class="form-select form-select-sm" id="sort-by" aria-label="정렬">
-							<option value="reg_ts">처리일시</option>
-							<option value="post_date">게시일</option>
-							<option value="post_id">게시글번호</option>
-						</select>
-					</div>
-					<div class="col-auto">
-						<select class="form-select form-select-sm" id="sort-order" aria-label="방향">
-							<option value="DESC">최신순</option>
-							<option value="ASC">오래된순</option>
-						</select>
-					</div>
-				</div>
+			<div class="filter-bar">
+				<select class="filter-select" id="filter-board" aria-label="게시판">
+					<option value="">전체 게시판</option>
+					<option value="menus/6">공지사항</option>
+					<option value="menus/13">사진</option>
+				</select>
+				<select class="filter-select" id="filter-status" aria-label="상태">
+					<option value="">전체 상태</option>
+					<option value="SUCCESS">성공</option>
+					<option value="FAIL">실패</option>
+				</select>
+				<select class="filter-select" id="sort-by" aria-label="정렬">
+					<option value="reg_ts">처리일시</option>
+					<option value="post_date">게시일</option>
+					<option value="post_id">게시글번호</option>
+				</select>
+				<select class="filter-select" id="sort-order" aria-label="방향">
+					<option value="DESC">최신순</option>
+					<option value="ASC">오래된순</option>
+				</select>
 			</div>
 
 			<!-- 테이블 -->
 			<section class="data-card" aria-label="처리 이력">
 				<div id="table-container">
 					<div class="state-box">
-						<div class="spinner-border spinner-border-sm text-primary mb-3" role="status"></div>
+						<div class="loader"></div>
 						<p>불러오는 중</p>
 					</div>
 				</div>
 			</section>
 
 			<!-- 페이징 -->
-			<nav aria-label="pagination" class="mt-3 paging" id="pagination"></nav>
+			<div id="pagination" class="paging"></div>
 		</main>
 
 		<script define:vars={{ API_BASE }}>
@@ -199,14 +310,14 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 
 			const B = {
 				board(id) {
-					if (id === 'menus/6') return '<span class="b b-notice">공지</span>';
-					if (id === 'menus/13') return '<span class="b b-photo">사진</span>';
-					return `<span class="b">${id}</span>`;
+					if (id === 'menus/6') return '<span class="badge badge-notice">공지</span>';
+					if (id === 'menus/13') return '<span class="badge badge-photo">사진</span>';
+					return `<span class="badge">${id}</span>`;
 				},
 				status(s) {
 					return s === 'SUCCESS'
-						? '<span class="b b-ok"><i class="bi bi-check-circle-fill me-1"></i>성공</span>'
-						: '<span class="b b-fail"><i class="bi bi-x-circle-fill me-1"></i>실패</span>';
+						? '<span class="badge badge-ok"><i class="bi bi-check-circle-fill"></i> 성공</span>'
+						: '<span class="badge badge-fail"><i class="bi bi-x-circle-fill"></i> 실패</span>';
 				},
 				date(s) {
 					if (!s) return '<span class="c-date">-</span>';
@@ -224,7 +335,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 				if (status) p.set('status', status);
 
 				const el = document.getElementById('table-container');
-				el.innerHTML = '<div class="state-box"><div class="spinner-border spinner-border-sm text-primary mb-3"></div><p>불러오는 중</p></div>';
+				el.innerHTML = '<div class="state-box"><div class="loader"></div><p>불러오는 중</p></div>';
 
 				try {
 					const r = await fetch(`${API_BASE}/api/posts?${p}`);
@@ -268,10 +379,16 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 			// ── 재발송 ──
 			const cooldowns = new Map();
 
-			async function resend(id, btn) {
+			window.resend = async function resend(id, btn) {
 				if (cooldowns.has(id)) return;
+				const wrap = btn.closest('.resend-wrap');
+				const hint = wrap.querySelector('.resend-hint');
+
 				btn.disabled = true;
-				btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+				btn.className = 'btn-resend is-loading';
+				btn.innerHTML = '<span class="spinner"></span> 요청 중...';
+				hint.textContent = '카카오톡 발송을 요청했어요';
+
 				try {
 					const r = await fetch(`${API_BASE}/api/posts/${id}/resend`, { method: 'POST' });
 					if (!r.ok) {
@@ -282,22 +399,29 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 				} catch (e) {
 					showToast(`발송 실패: ${e.message}`, false);
 					btn.disabled = false;
+					btn.className = 'btn-resend';
 					btn.textContent = '재발송';
+					hint.textContent = '';
 					return;
 				}
-				// 30초 쿨다운
+
 				let sec = 30;
 				cooldowns.set(id, true);
-				btn.textContent = `${sec}s`;
+				btn.className = 'btn-resend is-cooldown';
+				btn.textContent = `${sec}초`;
+				hint.textContent = `${sec}초 뒤에 다시 할 수 있어요`;
 				const iv = setInterval(() => {
 					sec--;
 					if (sec <= 0) {
 						clearInterval(iv);
 						cooldowns.delete(id);
 						btn.disabled = false;
+						btn.className = 'btn-resend';
 						btn.textContent = '재발송';
+						hint.textContent = '';
 					} else {
-						btn.textContent = `${sec}s`;
+						btn.textContent = `${sec}초`;
+						hint.textContent = `${sec}초 뒤에 다시 할 수 있어요`;
 					}
 				}, 1000);
 			}
@@ -308,10 +432,10 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 					el.innerHTML = '<div class="state-box"><div class="ico"><i class="bi bi-inbox"></i></div><h6>데이터가 없어요</h6><p>조건에 맞는 결과가 없어요. 필터를 변경해보세요.</p></div>';
 					return;
 				}
-				let h = `<table class="table table-hover"><thead><tr>
-					<th>게시판</th><th style="min-width:100px">번호</th><th>제목</th>
-					<th class="d-none d-md-table-cell">이미지</th><th>상태</th>
-					<th class="d-none d-md-table-cell">처리일시</th>
+				let h = `<table class="data-table"><thead><tr>
+					<th>게시판</th><th>번호</th><th>제목</th>
+					<th class="col-hide">이미지</th><th>상태</th>
+					<th class="col-hide">처리일시</th>
 					<th></th>
 				</tr></thead><tbody>`;
 				for (const r of d.items) {
@@ -320,12 +444,12 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 						<td>${B.board(r.board_id)}</td>
 						<td><span class="c-pid">${r.post_id}</span></td>
 						<td><span class="c-title">${r.title || '-'}</span></td>
-						<td class="d-none d-md-table-cell">
-							${r.image_count ? `<span class="c-img"><i class="bi bi-image me-1"></i>${r.image_count}</span>` : '<span class="c-img">-</span>'}
+						<td class="col-hide">
+							${r.image_count ? `<span class="c-img"><i class="bi bi-image"></i> ${r.image_count}</span>` : '<span class="c-img">-</span>'}
 						</td>
 						<td>${B.status(r.status)}</td>
-						<td class="d-none d-md-table-cell">${B.date(r.reg_ts)}</td>
-						<td>${canResend ? `<button class="btn-resend" onclick="resend(${r.id}, this)">재발송</button>` : ''}</td>
+						<td class="col-hide">${B.date(r.reg_ts)}</td>
+						<td>${canResend ? `<div class="resend-wrap"><button class="btn-resend" onclick="resend(${r.id}, this)">재발송</button><span class="resend-hint"></span></div>` : ''}</td>
 					</tr>`;
 				}
 				h += '</tbody></table>';
@@ -337,13 +461,14 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "http://localhost:8000";
 				if (d.total <= LIMIT) { el.innerHTML = ''; return; }
 				const pg = Math.floor(d.offset / LIMIT) + 1;
 				const tot = Math.ceil(d.total / LIMIT);
-				el.innerHTML = `<ul class="pagination pagination-sm justify-content-center mb-0">
-					<li class="page-item ${d.offset<=0?'disabled':''}"><a class="page-link" href="#" id="pp"><i class="bi bi-chevron-left"></i> 이전</a></li>
-					<li class="page-item disabled"><span class="page-link">${pg} / ${tot}</span></li>
-					<li class="page-item ${d.offset+LIMIT>=d.total?'disabled':''}"><a class="page-link" href="#" id="pn">다음 <i class="bi bi-chevron-right"></i></a></li>
-				</ul>`;
-				document.getElementById('pp')?.addEventListener('click', e => { e.preventDefault(); load(currentOffset - LIMIT); });
-				document.getElementById('pn')?.addEventListener('click', e => { e.preventDefault(); load(currentOffset + LIMIT); });
+				const prevCls = d.offset <= 0 ? ' page-btn-disabled' : '';
+				const nextCls = d.offset + LIMIT >= d.total ? ' page-btn-disabled' : '';
+				el.innerHTML = `
+					<button class="page-btn${prevCls}" id="pp"><i class="bi bi-chevron-left"></i> 이전</button>
+					<span class="page-info">${pg} / ${tot}</span>
+					<button class="page-btn${nextCls}" id="pn">다음 <i class="bi bi-chevron-right"></i></button>`;
+				document.getElementById('pp')?.addEventListener('click', () => load(currentOffset - LIMIT));
+				document.getElementById('pn')?.addEventListener('click', () => load(currentOffset + LIMIT));
 			}
 
 			document.querySelectorAll('select').forEach(s => s.addEventListener('change', () => load(0)));
