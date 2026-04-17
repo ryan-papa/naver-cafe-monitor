@@ -27,6 +27,11 @@ from api.src.auth.dependencies import (
     get_user_repository,
 )
 from api.src.auth.login_service import LoginContext, LoginError, login as do_login
+from api.src.auth.signup_service import (
+    SignupError,
+    confirm_signup,
+    signup as do_signup,
+)
 from api.src.auth.token_service import (
     RefreshInvalid,
     RefreshReuseDetected,
@@ -75,6 +80,77 @@ def _get_refresh_repository(
 ) -> RefreshTokenRepository:
     # user_repo 와 동일 connection 재사용
     return RefreshTokenRepository(user_repo.conn)
+
+
+class SignupBody(BaseModel):
+    email_enc: str
+    name_enc: str
+    password_enc: str
+
+
+class ConfirmSignupBody(BaseModel):
+    pending_token: str
+    totp_code: str = Field(..., min_length=6, max_length=10)
+
+
+@router.post("/signup")
+async def signup_endpoint(
+    body: SignupBody,
+    request: Request,
+    user_repo: UserRepository = Depends(get_user_repository),
+) -> dict:
+    ip = request.client.host if request.client else None
+    ua = request.headers.get("user-agent")
+    try:
+        result = do_signup(
+            email_enc_b64=body.email_enc,
+            name_enc_b64=body.name_enc,
+            password_enc_b64=body.password_enc,
+            user_repo=user_repo,
+            ip=ip,
+            user_agent=ua,
+        )
+    except SignupError as e:
+        return JSONResponse(status_code=e.status_code, content={"detail": e.code})
+    return {
+        "user_id": result.user_id,
+        "pending_token": result.pending_token,
+        "otpauth_url": result.otpauth_url,
+        "backup_codes": result.backup_codes,
+    }
+
+
+@router.post("/signup/confirm")
+async def signup_confirm_endpoint(
+    body: ConfirmSignupBody,
+    request: Request,
+    response: Response,
+    user_repo: UserRepository = Depends(get_user_repository),
+    refresh_repo: "RefreshTokenRepository" = Depends(lambda: None),
+) -> dict:
+    from shared.refresh_token_repository import RefreshTokenRepository
+
+    if refresh_repo is None:
+        refresh_repo = RefreshTokenRepository(user_repo.conn)
+
+    ip = request.client.host if request.client else None
+    ua = request.headers.get("user-agent")
+    try:
+        result = confirm_signup(
+            pending_token=body.pending_token,
+            totp_code=body.totp_code,
+            user_repo=user_repo,
+            refresh_repo=refresh_repo,
+            ip=ip,
+            user_agent=ua,
+        )
+    except SignupError as e:
+        return JSONResponse(status_code=e.status_code, content={"detail": e.code})
+
+    set_access_cookie(response, result.pair.access_token)
+    set_refresh_cookie(response, result.pair.refresh_token)
+    set_csrf_cookie(response, result.pair.csrf_token)
+    return {"ok": True, "user_id": result.user_id}
 
 
 class LoginBody(BaseModel):
