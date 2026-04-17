@@ -21,9 +21,12 @@ sys.path.insert(0, str(_REPO_ROOT / "batch"))
 from shared.database import get_connection
 from shared.post_repository import PostRepository
 
+from api.src.auth.router import router as auth_router
+
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Naver Cafe Monitor API", version="0.1.0")
+app.include_router(auth_router)
 
 app.add_middleware(
     CORSMiddleware,
