@@ -15,8 +15,11 @@ pymysql = pytest.importorskip("pymysql", reason="pymysql 미설치 — skip")
 fastapi = pytest.importorskip("fastapi", reason="fastapi 미설치 — skip")
 
 from api.src.main import app, get_repo
+from api.src.auth.dependencies import current_user
+from api.src.auth.csrf import CSRF_COOKIE, CSRF_HEADER, verify_csrf
 from fastapi.testclient import TestClient
 from shared.post_repository import PostRepository
+from shared.user_repository import UserRow
 
 
 def _mock_repo(rows=None, total=0, single=None):
@@ -28,10 +31,21 @@ def _mock_repo(rows=None, total=0, single=None):
     return repo
 
 
+def _fake_user() -> UserRow:
+    return UserRow(
+        id=1, email_enc=b"x", email_hmac=b"\x00" * 32, name_enc=b"x",
+        password_hash="$x", totp_secret_enc=None, totp_enabled=True,
+        backup_codes_hash=None, is_admin=True, failed_login_count=0, locked_until=None,
+    )
+
+
 @pytest.fixture
 def client():
     mock = _mock_repo()
     app.dependency_overrides[get_repo] = lambda: mock
+    app.dependency_overrides[current_user] = lambda: _fake_user()
+    # 기존 테스트는 CSRF 헤더 없음 → bypass
+    app.dependency_overrides[verify_csrf] = lambda: None
     yield TestClient(app), mock
     app.dependency_overrides.clear()
 
