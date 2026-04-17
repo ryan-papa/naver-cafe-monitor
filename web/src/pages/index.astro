@@ -1,6 +1,6 @@
 ---
 import "bootstrap-icons/font/bootstrap-icons.min.css";
-const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
+const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 ---
 
 <html lang="ko">
@@ -304,7 +304,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 
 		<nav class="navbar">
 			<div class="navbar-inner">
-				<a class="brand" href="/naver-cafe-monitoring/">
+				<a class="brand" href="/">
 					<span class="brand-icon"><i class="bi bi-clipboard2-data"></i></span>
 					카페 모니터
 				</a>
@@ -387,7 +387,9 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 			</div>
 		</div>
 
-		<script define:vars={{ API_BASE }}>
+		<script>
+			import { csrfFetch } from '../lib/auth-client';
+			const API_BASE = "";
 			// ── 상태 ──
 			const DEFAULT_SIZE = 30;
 			const VALID_SIZES = [10, 30, 50];
@@ -482,7 +484,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 				el.innerHTML = '<div class="state-box"><div class="loader"></div><p>불러오는 중</p></div>';
 
 				try {
-					const r = await fetch(`${API_BASE}/api/posts?${p}`);
+					const r = await csrfFetch(`${API_BASE}/api/posts?${p}`);
 					if (!r.ok) throw new Error(r.status);
 					const d = await r.json();
 					state.total = d.total;
@@ -509,9 +511,9 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 			async function stats() {
 				try {
 					const [a,s,f] = await Promise.all([
-						fetch(`${API_BASE}/api/posts?limit=1`).then(r=>r.json()),
-						fetch(`${API_BASE}/api/posts?status=SUCCESS&limit=1`).then(r=>r.json()),
-						fetch(`${API_BASE}/api/posts?status=FAIL&limit=1`).then(r=>r.json()),
+						csrfFetch(`${API_BASE}/api/posts?limit=1`).then(r=>r.json()),
+						csrfFetch(`${API_BASE}/api/posts?status=SUCCESS&limit=1`).then(r=>r.json()),
+						csrfFetch(`${API_BASE}/api/posts?status=FAIL&limit=1`).then(r=>r.json()),
 					]);
 					document.getElementById('stat-total').textContent = a.total;
 					document.getElementById('stat-success').textContent = s.total;
@@ -645,7 +647,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 				modalClose.focus();
 
 				try {
-					const r = await fetch(`${API_BASE}/api/posts/${id}`);
+					const r = await csrfFetch(`${API_BASE}/api/posts/${id}`);
 					if (!r.ok) throw new Error(r.status);
 					const d = await r.json();
 					renderModal(d);
@@ -721,7 +723,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 				hint.textContent = '카카오톡 발송을 요청했어요';
 
 				try {
-					const r = await fetch(`${API_BASE}/api/posts/${id}/resend`, { method: 'POST' });
+					const r = await csrfFetch(`${API_BASE}/api/posts/${id}/resend`, { method: 'POST' });
 					if (!r.ok) {
 						const err = await r.json().catch(() => ({}));
 						throw new Error(err.detail || `${r.status}`);
