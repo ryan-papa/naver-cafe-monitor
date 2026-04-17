@@ -26,11 +26,13 @@ from api.src.auth.dependencies import (
     decrypted_email_and_name,
     get_user_repository,
 )
+from api.src.auth.login_service import LoginContext, LoginError, login as do_login
 from api.src.auth.token_service import (
     RefreshInvalid,
     RefreshReuseDetected,
     rotate_refresh,
 )
+from pydantic import BaseModel, Field
 from shared.auth_events import log_auth_event
 from shared.refresh_token_repository import RefreshTokenRepository
 from shared.user_repository import UserRepository, UserRow
@@ -73,6 +75,45 @@ def _get_refresh_repository(
 ) -> RefreshTokenRepository:
     # user_repo 와 동일 connection 재사용
     return RefreshTokenRepository(user_repo.conn)
+
+
+class LoginBody(BaseModel):
+    email_enc: str = Field(..., description="RSA-OAEP(email) → base64")
+    password_enc: str = Field(..., description="RSA-OAEP(password) → base64")
+    totp_code: str | None = Field(default=None, max_length=10)
+
+
+@router.post("/login")
+async def login_endpoint(
+    body: LoginBody,
+    request: Request,
+    response: Response,
+    user_repo: UserRepository = Depends(get_user_repository),
+    refresh_repo: "RefreshTokenRepository" = Depends(lambda: None),  # override below
+) -> dict:
+    from shared.refresh_token_repository import RefreshTokenRepository
+
+    if refresh_repo is None:
+        refresh_repo = RefreshTokenRepository(user_repo.conn)
+
+    ip = request.client.host if request.client else None
+    ua = request.headers.get("user-agent")
+    try:
+        pair = do_login(
+            email_enc_b64=body.email_enc,
+            password_enc_b64=body.password_enc,
+            totp_code=body.totp_code,
+            user_repo=user_repo,
+            refresh_repo=refresh_repo,
+            ctx=LoginContext(ip=ip, user_agent=ua),
+        )
+    except LoginError as e:
+        return JSONResponse(status_code=e.status_code, content={"detail": e.code})
+
+    set_access_cookie(response, pair.access_token)
+    set_refresh_cookie(response, pair.refresh_token)
+    set_csrf_cookie(response, pair.csrf_token)
+    return {"ok": True}
 
 
 @router.post("/refresh")
