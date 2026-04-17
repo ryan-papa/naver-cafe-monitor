@@ -16,7 +16,7 @@
 | TA-07 | `auth_events` 기록 유틸 | F-15 | TA-02 | Done | `feat/TA-07-events` |
 | TA-08 | `/api/auth/public-key` 엔드포인트 | F-11 | TA-01, TA-03 | Done | `feat/TA-08-pubkey` |
 | TA-09 | `/api/auth/signup` + `/api/auth/signup/confirm` (TOTP 발급·검증·활성화·자동로그인) | F-01~F-04, F-13 | TA-02~TA-07 | Todo | `feat/TA-09-signup` |
-| TA-10 | `/api/auth/login` (비번+TOTP, 실패 시 rate limit·lock) | F-05, F-06 | TA-02~TA-07 | Todo | `feat/TA-10-login` |
+| TA-10 | `/api/auth/login` (비번+TOTP, 실패 시 rate limit·lock) | F-05, F-06 | TA-02~TA-07 | Done | `feat/TA-10-login` |
 | TA-11 | `/api/auth/refresh` (rotation + reuse detection + 단일 세션) | F-07, F-08 | TA-04, TA-07 | Done | `feat/TA-11-refresh` |
 | TA-12 | `/api/auth/logout` + `/api/auth/me` + user_repository + current_user dependency | F-09 | TA-04 | Done | `feat/TA-12-logout-me` |
 | TA-13 | 기존 `/api/posts/*` 보호: 인증 의존성 주입 | F-10 | TA-04 | Done | `feat/TA-13-protect-posts` |
