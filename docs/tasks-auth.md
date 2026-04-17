@@ -25,7 +25,7 @@
 | TA-16 | 프런트 로그인 페이지 (E2E: pubkey fetch → RSA-OAEP 암호화) | F-05, F-11 | TA-15, TA-08, TA-10 | Todo | `feat/TA-16-login-ui` |
 | TA-17 | 프런트 회원가입 3단계 페이지 (정보 → TOTP QR/백업코드 → 완료) | F-01, F-04, F-11 | TA-15, TA-08, TA-09 | Todo | `feat/TA-17-signup-ui` |
 | TA-18 | 프런트 공통 인증 컨텍스트 + 자동 refresh 인터셉터 | F-05, F-07 | TA-15, TA-11 | Todo | `feat/TA-18-auth-context` |
-| TA-19 | 에러 페이지 5종 (401/403/404/500/offline) + 공통 디자인 | F-12 | TA-15 | Todo | `feat/TA-19-error-pages` |
+| TA-19 | 에러 페이지 5종 (401/403/404/500/offline) + 공통 디자인 | F-12 | TA-15 | Done | `feat/TA-19-error-pages` |
 | TA-20 | nginx 설정: `/api/auth/*` 통과, 루트는 Astro SSR(Node) 프록시 | F-10 | TA-15 | Todo | `feat/TA-20-nginx` |
 | TA-21 | Unit 테스트 (crypto, argon2, TOTP, rate limit, JWT) | 테스트 | TA-03~TA-07 | Todo | `feat/TA-21-unit` |
 | TA-22 | Integration 테스트 (signup→TOTP→login→rotation→logout 풀 플로우) | 테스트 | TA-09~TA-12 | Todo | `feat/TA-22-integration` |
