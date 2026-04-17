@@ -35,7 +35,7 @@ def _build_ssl_context() -> ssl.SSLContext:
 def get_connection(
     host: str = "eepp.shop",
     port: int = 3306,
-    user: str = "REDACTED_USER",
+    user: str = "rp_readwrite",
     password: str | None = None,
     database: str = _DB_NAME,
 ) -> Connection:
@@ -66,7 +66,7 @@ def get_connection(
 def connect(
     host: str = "eepp.shop",
     port: int = 3306,
-    user: str = "REDACTED_USER",
+    user: str = "rp_readwrite",
     password: str | None = None,
     database: str = _DB_NAME,
 ) -> Generator[Connection, None, None]:
