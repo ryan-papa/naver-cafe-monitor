@@ -2,7 +2,8 @@
 
 **ID:** 20260417_202717_auth-signup-login_ad69d7f7
 **날짜:** 2026-04-17
-**상태:** Draft
+**상태:** In Review (v2)
+**개정:** 2026-04-17 2FA 도메인별 정책 · `/settings/2fa` 추가
 
 ---
 
@@ -96,16 +97,17 @@
 
 **선택:** A · **근거 유형:** 제품 가설
 
-### 4) 2FA
+### 4) 2FA (v2 개정)
 
 | 대안 | 요약 | 장·단점 | 공수 | 판단 근거 |
 |------|------|---------|------|----------|
-| A | 선택 기능 | 사용자 편의 / 보안 불균질 | 하 | 엔지니어 선호 |
+| A | 선택 기능 | 사용자 편의 / 보안 불균질 | 하 | — |
 | B | 관리자만 필수 | 보안·편의 균형 / 이원화 | 중 | — |
-| C | **전 사용자 필수** | 보안 강함 / 설정 단계 추가 | 중 | 창업자 직감 |
+| C | 전 사용자 필수 | 보안 강함 / 내부망에도 강제되어 중복 방어 | 중 | — |
+| **C'** | **도메인 기반: 외부(`*.eepp.store`)만 필수, 내부(`*.eepp.shop`)는 mTLS 로 1차 방어, 2FA 면제** | 보안 계층 분리 · 운영자 편의 · 외부 공개 시 자동 강제 | 중 | 창업자 직감 |
 | D | 미도입 | — | — | — |
 
-**선택:** C · **근거 유형:** 창업자 직감
+**선택:** C' · **근거 유형:** 창업자 직감 (내부 mTLS 는 실질적 2요소 역할)
 
 ### 5) Refresh 관리
 
@@ -203,7 +205,11 @@
 | F-13 | 초기 관리자 시드 스크립트 (`INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD` 환경변수 1회 사용) | Must |
 | F-14 | `is_admin` 컬럼 (bool) 스키마 반영, API 미노출 | Must (TODO 권한 체계 대비) |
 | F-15 | `auth_events` 로그 테이블 (로그인/실패/재사용 감지/토큰 회전) | Should |
-| F-16 | 2FA 비활성화 API (비번+TOTP 재확인) | Could |
+| F-16 | 2FA 재설정 API + 페이지 `/settings/2fa` (비번 + TOTP/백업코드 재확인 → 새 QR·백업코드 10개) | Must |
+| F-17 | 호스트 분류: `*.eepp.shop`=internal, `*.eepp.store`=external (suffix 매칭) | Must |
+| F-18 | 외부 로그인 성공 & TOTP 미설정 → JWT claim `totp_setup_required=true`. 내부 로그인은 claim 미부여 (2FA 면제) | Must |
+| F-19 | 반쪽 세션 가드: 백엔드(`current_user`)는 `/api/auth/*` + `/api/settings/2fa/*` 외 요청 반려(403). 프론트 미들웨어는 `/api/auth/me` 응답 기반 `/settings/2fa` 강제 리다이렉트 | Must |
+| F-20 | `/settings/2fa` 단일 페이지: 미설정 → QR·백업코드 확인 UI, 설정됨 → 재확인(비번 + TOTP OR 백업코드) → 신규 발급 | Must |
 
 ## 비기능 요구사항
 
@@ -324,11 +330,66 @@
 |------|------|
 | `/login` | 로그인 |
 | `/signup` | 회원가입 (3단계: 정보→TOTP→완료) |
+| `/settings/2fa` | 2FA 최초 설정 + 재설정 (v2 신규) |
 | `/error/401` | 미인증 |
 | `/error/403` | 권한 없음 |
 | `/error/404` | 없는 페이지 |
 | `/error/500` | 서버 오류 |
 | `/error/offline` | 네트워크 오류 |
+
+## v2 스펙 상세 (2FA 도메인별 정책)
+
+### 호스트 분류
+
+| 호스트 suffix | 분류 | 2FA 정책 |
+|---------------|------|----------|
+| `.eepp.shop` | internal | 면제 (mTLS 로 1차 방어) |
+| `.eepp.store` | external | 필수 |
+| 기타 | unknown | 기본 external 로 처리 (안전 측) |
+
+구현: `shared/host_classifier.py::classify(hostname)` → `"internal" | "external"`.
+
+### 로그인 분기
+
+| 조건 | 동작 |
+|------|------|
+| 내부 로그인 성공 | access/refresh 발급, claim 없음 |
+| 외부 로그인 + `totp_enabled=True` | 기존 로직 (TOTP 코드 요구) |
+| 외부 로그인 + `totp_enabled=False` | 비번만 통과해도 access 발급. 단 claim `totp_setup_required=true` 삽입. refresh 도 동일 상태 표시. |
+
+### 반쪽 세션 가드
+
+백엔드(`current_user`):
+- `totp_setup_required=true` 토큰은 아래 경로만 허용:
+  - `/api/auth/me`, `/api/auth/logout`, `/api/auth/refresh`
+  - `/api/auth/public-key`
+  - `/api/settings/2fa/*`
+- 그 외 요청은 `403 totp_setup_required`.
+
+프런트 SSR middleware:
+- `/api/auth/me` 호출 → 200 응답의 `totp_setup_required=true` 면 `/settings/2fa` 외 경로 접근 시 302 redirect.
+
+### `/settings/2fa` 동작
+
+| 사용자 상태 | UI |
+|-------------|-----|
+| `totp_enabled=false` + secret 없음 | secret 생성·저장 (enabled 유지 false), QR + 백업코드 10개 표시, TOTP 코드 입력으로 활성화 |
+| `totp_enabled=false` + secret 있음 (재진입) | 기존 QR·코드 재사용 |
+| `totp_enabled=true` (재설정) | 현재 비번 + (TOTP OR 백업코드 1개) 재확인 → 새 secret + 새 백업코드 10개로 교체 → 신규 QR 표시 |
+
+### 데이터 모델 영향
+
+기존 `users` 테이블만으로 충분. 신규 컬럼 없음.
+
+### 새 요구사항
+
+| ID | 요구사항 |
+|----|----------|
+| F-16 | `/api/settings/2fa/*` 엔드포인트들 (`GET` 상태, `POST /enable`, `POST /reset`) + `/settings/2fa` 페이지 |
+| F-17 | 호스트 분류 유틸 |
+| F-18 | 외부 로그인 + TOTP 미설정 시 `totp_setup_required` claim |
+| F-19 | 백엔드 전역 가드 (setup_required 시 허용 경로 화이트리스트) |
+| F-20 | 프런트 미들웨어: `/api/auth/me` 응답 기반 `/settings/2fa` 강제 이동 |
 
 ## 롤아웃
 
