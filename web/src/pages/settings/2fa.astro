@@ -1,0 +1,221 @@
+---
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>2단계 인증 · 카페 모니터</title>
+		<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+		<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard-dynamic-subset.min.css" rel="stylesheet" />
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" />
+		<style>
+			:root{--color-primary:#2e8555;--color-primary-light:#e6f6ed;--color-danger:#e3342f;--color-danger-light:#fef2f2;--color-warning:#e67e22;--color-warning-light:#fef9f0;--bg-main:#f6f8fa;--bg-surface:#ffffff;--border:#e3e8ee;--text-primary:#1c1e21;--text-secondary:#606770;--shadow:0 4px 12px rgba(0,0,0,0.06);--radius:16px}
+			*{box-sizing:border-box;margin:0;padding:0}
+			body{font-family:'Pretendard Variable',Pretendard,-apple-system,system-ui,sans-serif;background:var(--bg-main);color:var(--text-primary);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+			.card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);padding:36px;box-shadow:var(--shadow);max-width:480px;width:100%}
+			.brand{display:flex;align-items:center;gap:10px;margin-bottom:20px;justify-content:center}
+			.brand-icon{width:40px;height:40px;border-radius:10px;background:var(--color-primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+			h1{font-size:1.4rem;font-weight:800;letter-spacing:-0.02em;text-align:center;margin-bottom:4px}
+			.sub{font-size:0.88rem;color:var(--text-secondary);text-align:center;margin-bottom:24px}
+			label{display:block;font-size:0.82rem;font-weight:600;margin-bottom:6px;color:var(--text-secondary)}
+			input{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:0.95rem;font-family:inherit;margin-bottom:12px}
+			input:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px rgba(46,133,85,0.1)}
+			.btn{width:100%;padding:12px;border:none;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;background:var(--color-primary);color:#fff;transition:opacity 0.15s;margin-top:4px}
+			.btn:hover{opacity:0.92}.btn:disabled{opacity:0.5;cursor:not-allowed}
+			.btn-ghost{background:transparent;color:var(--text-secondary);border:1px solid var(--border)}
+			.err{background:var(--color-danger-light);color:var(--color-danger);border-radius:8px;padding:10px 14px;font-size:0.85rem;margin-bottom:12px;display:none}
+			.err.show{display:block}
+			.qr{display:flex;justify-content:center;margin:16px 0;padding:20px;background:#fff;border:1px solid var(--border);border-radius:12px}
+			.qr img{width:200px;height:200px}
+			.codes{background:var(--color-warning-light);border:1px solid var(--color-warning);border-radius:10px;padding:14px;margin:12px 0}
+			.codes-title{display:flex;align-items:center;gap:6px;font-weight:700;font-size:0.85rem;color:var(--color-warning);margin-bottom:8px}
+			.codes ul{list-style:none;columns:2;gap:4px;font-family:'SF Mono',Menlo,monospace;font-size:0.82rem;color:var(--text-primary)}
+			.codes li{padding:2px 0}
+			.status{background:var(--color-primary-light);color:var(--color-primary);border-radius:8px;padding:10px 14px;font-size:0.85rem;margin-bottom:12px;display:flex;align-items:center;gap:6px;font-weight:600}
+			.tab-row{display:flex;gap:8px;margin-bottom:12px}
+			.tab{flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:#fff;font-size:0.85rem;cursor:pointer;font-weight:600;color:var(--text-secondary)}
+			.tab.active{background:var(--color-primary);color:#fff;border-color:var(--color-primary)}
+			.mode{display:none}.mode.active{display:block}
+			.actions{display:flex;gap:8px;margin-top:8px}
+			.actions .btn{flex:1}
+		</style>
+	</head>
+	<body>
+		<main class="card">
+			<div class="brand">
+				<span class="brand-icon"><i class="bi bi-shield-lock-fill"></i></span>
+				<span style="font-weight:800">2단계 인증</span>
+			</div>
+
+			<div id="err" class="err"></div>
+			<div id="loading" class="sub">불러오는 중…</div>
+
+			<!-- 설정(초기) UI: enabled=false -->
+			<section id="setup" class="mode">
+				<h1 id="setup-title">인증 앱 연결</h1>
+				<p class="sub" id="setup-sub">Google Authenticator 등으로 QR을 스캔한 뒤 6자리 코드를 입력하세요.</p>
+				<div class="qr"><img id="setup-qr" alt="TOTP QR" /></div>
+				<div id="setup-codes-wrap" class="codes" style="display:none">
+					<div class="codes-title"><i class="bi bi-shield-lock"></i> 백업 코드 (안전한 곳에 보관)</div>
+					<ul id="setup-codes"></ul>
+				</div>
+				<label>인증 코드</label>
+				<input id="setup-totp" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" />
+				<button id="setup-confirm" class="btn">활성화 완료</button>
+			</section>
+
+			<!-- 재설정 UI: enabled=true -->
+			<section id="reset" class="mode">
+				<h1>2FA 재설정</h1>
+				<p class="sub">현재 비밀번호와 TOTP 또는 백업 코드 1개로 본인확인 후 새 코드를 발급합니다.</p>
+				<div class="status"><i class="bi bi-check-circle-fill"></i> 현재 2FA 활성화됨</div>
+				<label>현재 비밀번호</label>
+				<input id="reset-pw" type="password" autocomplete="current-password" />
+				<div class="tab-row">
+					<button class="tab active" data-m="totp">TOTP 코드</button>
+					<button class="tab" data-m="backup">백업 코드</button>
+				</div>
+				<div id="reset-totp-wrap">
+					<label>인증 코드 (6자리)</label>
+					<input id="reset-totp" type="text" inputmode="numeric" maxlength="6" />
+				</div>
+				<div id="reset-backup-wrap" style="display:none">
+					<label>백업 코드 (10자)</label>
+					<input id="reset-backup" type="text" maxlength="10" />
+				</div>
+				<button id="reset-submit" class="btn">새 코드 발급</button>
+
+				<div id="reset-result" style="display:none;margin-top:16px">
+					<h1 style="font-size:1.1rem;margin-top:16px">새 QR을 스캔하세요</h1>
+					<div class="qr"><img id="reset-qr" alt="TOTP QR" /></div>
+					<div class="codes">
+						<div class="codes-title"><i class="bi bi-shield-lock"></i> 새 백업 코드 (기존은 무효)</div>
+						<ul id="reset-codes"></ul>
+					</div>
+					<div class="actions">
+						<a href="/" class="btn btn-ghost">완료</a>
+					</div>
+				</div>
+			</section>
+		</main>
+
+		<script>
+			import { csrfFetch, fetchPublicKey, encryptField } from '../../lib/auth-client';
+
+			const errBox = document.getElementById('err') as HTMLDivElement;
+			const loading = document.getElementById('loading') as HTMLDivElement;
+			const setupBox = document.getElementById('setup') as HTMLElement;
+			const resetBox = document.getElementById('reset') as HTMLElement;
+
+			function showErr(msg: string) { errBox.textContent = msg; errBox.classList.add('show'); }
+			function clearErr() { errBox.classList.remove('show'); errBox.textContent = ''; }
+			function show(el: HTMLElement) { el.classList.add('active'); }
+
+			const ERR: Record<string, string> = {
+				already_enabled: '이미 활성화된 상태입니다.',
+				not_initialized: '아직 초기화되지 않았습니다.',
+				totp_invalid: '인증 코드가 올바르지 않습니다.',
+				invalid_password: '비밀번호가 올바르지 않습니다.',
+				second_factor_invalid: 'TOTP 또는 백업 코드를 확인해주세요.',
+			};
+
+			function qrUrl(otpauth: string): string {
+				return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauth)}`;
+			}
+			function renderCodes(list: string[], ul: HTMLUListElement) {
+				ul.innerHTML = '';
+				for (const c of list) {
+					const li = document.createElement('li');
+					li.textContent = c;
+					ul.appendChild(li);
+				}
+			}
+
+			async function bootstrap() {
+				const r = await csrfFetch('/api/settings/2fa/status');
+				if (!r.ok) { loading.textContent = '상태를 불러오지 못했습니다.'; return; }
+				const s = await r.json();
+				loading.style.display = 'none';
+				if (s.totp_enabled) {
+					show(resetBox);
+				} else {
+					show(setupBox);
+					await initSetup();
+				}
+			}
+
+			async function initSetup() {
+				const r = await csrfFetch('/api/settings/2fa/init', { method: 'POST' });
+				if (!r.ok) { showErr('초기화 실패'); return; }
+				const data = await r.json();
+				(document.getElementById('setup-qr') as HTMLImageElement).src = qrUrl(data.otpauth_url);
+				if (data.backup_codes) {
+					(document.getElementById('setup-codes-wrap') as HTMLElement).style.display = 'block';
+					renderCodes(data.backup_codes, document.getElementById('setup-codes') as HTMLUListElement);
+				}
+			}
+
+			(document.getElementById('setup-confirm') as HTMLButtonElement).addEventListener('click', async () => {
+				clearErr();
+				const code = (document.getElementById('setup-totp') as HTMLInputElement).value.trim();
+				if (code.length < 6) { showErr('6자리 코드를 입력하세요.'); return; }
+				const r = await csrfFetch('/api/settings/2fa/confirm', {
+					method: 'POST',
+					body: JSON.stringify({ totp_code: code }),
+				});
+				if (!r.ok) {
+					const d = await r.json().catch(() => ({}));
+					showErr(ERR[d.detail] || '실패 (' + d.detail + ')');
+					return;
+				}
+				window.location.assign('/');
+			});
+
+			// reset tabs
+			document.querySelectorAll<HTMLButtonElement>('.tab').forEach((btn) => {
+				btn.addEventListener('click', () => {
+					document.querySelectorAll<HTMLButtonElement>('.tab').forEach((b) => b.classList.remove('active'));
+					btn.classList.add('active');
+					const m = btn.dataset.m;
+					(document.getElementById('reset-totp-wrap') as HTMLElement).style.display =
+						m === 'totp' ? 'block' : 'none';
+					(document.getElementById('reset-backup-wrap') as HTMLElement).style.display =
+						m === 'backup' ? 'block' : 'none';
+				});
+			});
+
+			(document.getElementById('reset-submit') as HTMLButtonElement).addEventListener('click', async () => {
+				clearErr();
+				const pw = (document.getElementById('reset-pw') as HTMLInputElement).value;
+				if (!pw) { showErr('비밀번호를 입력하세요.'); return; }
+				const totp = (document.getElementById('reset-totp') as HTMLInputElement).value.trim();
+				const backup = (document.getElementById('reset-backup') as HTMLInputElement).value.trim();
+				try {
+					const pub = await fetchPublicKey();
+					const body: Record<string, string> = { password_enc: await encryptField(pub, pw) };
+					if (totp) body.totp_code = totp;
+					if (backup) body.backup_code = backup;
+					const r = await csrfFetch('/api/settings/2fa/reset', {
+						method: 'POST',
+						body: JSON.stringify(body),
+					});
+					if (!r.ok) {
+						const d = await r.json().catch(() => ({}));
+						showErr(ERR[d.detail] || '실패 (' + d.detail + ')');
+						return;
+					}
+					const data = await r.json();
+					(document.getElementById('reset-qr') as HTMLImageElement).src = qrUrl(data.otpauth_url);
+					renderCodes(data.backup_codes, document.getElementById('reset-codes') as HTMLUListElement);
+					(document.getElementById('reset-result') as HTMLElement).style.display = 'block';
+				} catch (e) {
+					console.error(e);
+					showErr('네트워크 오류');
+				}
+			});
+
+			bootstrap();
+		</script>
+	</body>
+</html>
