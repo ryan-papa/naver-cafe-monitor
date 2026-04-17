@@ -19,7 +19,7 @@
 | TA-10 | `/api/auth/login` (비번+TOTP, 실패 시 rate limit·lock) | F-05, F-06 | TA-02~TA-07 | Todo | `feat/TA-10-login` |
 | TA-11 | `/api/auth/refresh` (rotation + reuse detection + 단일 세션) | F-07, F-08 | TA-04, TA-07 | Todo | `feat/TA-11-refresh` |
 | TA-12 | `/api/auth/logout` + `/api/auth/me` + user_repository + current_user dependency | F-09 | TA-04 | Done | `feat/TA-12-logout-me` |
-| TA-13 | 기존 `/api/posts/*` 보호: 인증 의존성 주입 | F-10 | TA-04 | Todo | `feat/TA-13-protect-posts` |
+| TA-13 | 기존 `/api/posts/*` 보호: 인증 의존성 주입 | F-10 | TA-04 | Done | `feat/TA-13-protect-posts` |
 | TA-14 | 초기 관리자 시드 스크립트 (`scripts/seed_admin.py`, env 1회 주입) | F-13 | TA-02, TA-03 | Done (admin user id=1 생성) | `feat/TA-14-seed-admin` |
 | TA-15 | Astro SSR 전환 (`@astrojs/node`) + 미들웨어 가드 | F-10 | — | Todo | `feat/TA-15-astro-ssr` |
 | TA-16 | 프런트 로그인 페이지 (E2E: pubkey fetch → RSA-OAEP 암호화) | F-05, F-11 | TA-15, TA-08, TA-10 | Todo | `feat/TA-16-login-ui` |
