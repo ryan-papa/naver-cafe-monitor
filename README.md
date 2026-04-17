@@ -4,6 +4,18 @@
 
 ---
 
+## 화면
+
+| 대시보드 | 상세 모달 |
+|:--------:|:---------:|
+| ![dashboard](docs/screenshots/dashboard.jpg) | ![detail-modal](docs/screenshots/detail-modal.jpg) |
+
+| 로그인 | 회원가입 (3단계: 정보 → TOTP → 완료) |
+|:------:|:------------------------------------:|
+| ![login](docs/screenshots/login.jpg) | ![signup](docs/screenshots/signup.jpg) |
+
+---
+
 ## 기능 요약
 
 | 컴포넌트 | 역할 |
