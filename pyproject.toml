@@ -5,8 +5,9 @@ description = "Naver Cafe Monitor — monorepo workspace (batch / api / web)"
 requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
-testpaths = ["batch/tests"]
+testpaths = ["batch/tests", "api/tests", "shared/tests", "scripts/auth/tests", "db/tests"]
 asyncio_mode = "auto"
+addopts = "--import-mode=importlib"
 
 [tool.ruff]
 line-length = 100

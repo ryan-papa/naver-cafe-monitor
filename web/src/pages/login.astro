@@ -1,0 +1,160 @@
+---
+const next = Astro.url.searchParams.get('next') || '/';
+---
+
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>로그인 · 카페 모니터</title>
+		<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+		<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard-dynamic-subset.min.css" rel="stylesheet" />
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" />
+		<style>
+			:root {
+				--color-primary: #2e8555;
+				--color-primary-light: #e6f6ed;
+				--color-danger: #e3342f;
+				--color-danger-light: #fef2f2;
+				--bg-main: #f6f8fa;
+				--bg-surface: #ffffff;
+				--border: #e3e8ee;
+				--text-primary: #1c1e21;
+				--text-secondary: #606770;
+				--shadow: 0 4px 12px rgba(0,0,0,0.06);
+				--radius: 16px;
+			}
+			*{box-sizing:border-box;margin:0;padding:0}
+			body{font-family:'Pretendard Variable',Pretendard,-apple-system,system-ui,sans-serif;background:var(--bg-main);color:var(--text-primary);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+			.card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);padding:40px;box-shadow:var(--shadow);max-width:420px;width:100%}
+			.brand{display:flex;align-items:center;gap:10px;margin-bottom:24px;justify-content:center}
+			.brand-icon{width:40px;height:40px;border-radius:10px;background:var(--color-primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+			h1{font-size:1.4rem;font-weight:800;letter-spacing:-0.02em;text-align:center;margin-bottom:4px}
+			.sub{font-size:0.88rem;color:var(--text-secondary);text-align:center;margin-bottom:28px}
+			label{display:block;font-size:0.82rem;font-weight:600;margin-bottom:6px;color:var(--text-secondary)}
+			input{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:0.95rem;font-family:inherit;background:#fff;transition:border-color 0.15s,box-shadow 0.15s;margin-bottom:14px}
+			input:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 3px rgba(46,133,85,0.1)}
+			.btn{width:100%;padding:12px;border:none;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;background:var(--color-primary);color:#fff;transition:opacity 0.15s}
+			.btn:hover{opacity:0.92}
+			.btn:disabled{opacity:0.5;cursor:not-allowed}
+			.err{background:var(--color-danger-light);color:var(--color-danger);border-radius:8px;padding:10px 14px;font-size:0.85rem;margin-bottom:14px;display:none}
+			.err.show{display:block}
+			.signup-link{text-align:center;font-size:0.88rem;color:var(--text-secondary);margin-top:20px}
+			.signup-link a{color:var(--color-primary);font-weight:700;text-decoration:none}
+			.totp-wrap{display:none}
+			.totp-wrap.show{display:block}
+			.hint{font-size:0.78rem;color:var(--text-secondary);margin-top:-8px;margin-bottom:14px}
+		</style>
+	</head>
+	<body>
+		<main class="card">
+			<div class="brand">
+				<span class="brand-icon"><i class="bi bi-clipboard2-data"></i></span>
+				<span style="font-weight:800;letter-spacing:-0.02em">카페 모니터</span>
+			</div>
+			<h1>로그인</h1>
+			<p class="sub">이메일과 비밀번호를 입력하세요.</p>
+
+			<div id="err" class="err"></div>
+
+			<form id="login-form" novalidate>
+				<div id="creds-step">
+					<label for="email">이메일</label>
+					<input id="email" type="email" required autocomplete="email" />
+					<label for="password">비밀번호</label>
+					<input id="password" type="password" required autocomplete="current-password" />
+				</div>
+
+				<div id="totp-step" class="totp-wrap">
+					<label for="totp">인증 앱 코드</label>
+					<input id="totp" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" />
+					<p class="hint">Google Authenticator 등에 표시된 6자리 코드를 입력하세요.</p>
+				</div>
+
+				<button id="submit" class="btn" type="submit">로그인</button>
+			</form>
+
+			<p class="signup-link">
+				계정이 없으신가요? <a href="/signup">회원가입</a>
+			</p>
+		</main>
+
+		<script>
+			import { fetchPublicKey, encryptField } from '../lib/auth-client';
+
+			const form = document.getElementById('login-form') as HTMLFormElement;
+			const errBox = document.getElementById('err') as HTMLDivElement;
+			const emailInput = document.getElementById('email') as HTMLInputElement;
+			const pwInput = document.getElementById('password') as HTMLInputElement;
+			const totpInput = document.getElementById('totp') as HTMLInputElement;
+			const totpStep = document.getElementById('totp-step') as HTMLDivElement;
+			const submitBtn = document.getElementById('submit') as HTMLButtonElement;
+			const next = new URL(window.location.href).searchParams.get('next') || '/';
+
+			let cachedKey: CryptoKey | null = null;
+			async function getKey() {
+				if (!cachedKey) cachedKey = await fetchPublicKey();
+				return cachedKey;
+			}
+
+			function showErr(msg: string) {
+				errBox.textContent = msg;
+				errBox.classList.add('show');
+			}
+			function clearErr() {
+				errBox.classList.remove('show');
+				errBox.textContent = '';
+			}
+
+			const ERROR_MSG: Record<string, string> = {
+				invalid_credentials: '이메일 또는 비밀번호가 올바르지 않습니다.',
+				account_locked: '로그인 실패가 반복되어 15분간 잠겼습니다. 잠시 후 다시 시도하세요.',
+				ip_rate_limited: '요청이 너무 많습니다. 15분 뒤 다시 시도하세요.',
+				account_rate_limited: '로그인 시도가 너무 많습니다. 15분 뒤 다시 시도하세요.',
+				totp_required: '2단계 인증 코드가 필요합니다.',
+				totp_invalid: '인증 코드가 올바르지 않습니다.',
+			};
+
+			form.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				clearErr();
+				submitBtn.disabled = true;
+				submitBtn.textContent = '처리 중…';
+				try {
+					const pub = await getKey();
+					const body: Record<string, string> = {
+						email_enc: await encryptField(pub, emailInput.value.trim()),
+						password_enc: await encryptField(pub, pwInput.value),
+					};
+					if (totpStep.classList.contains('show')) {
+						body.totp_code = totpInput.value.trim();
+					}
+					const r = await fetch('/api/auth/login', {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						credentials: 'include',
+						body: JSON.stringify(body),
+					});
+					if (r.ok) {
+						window.location.assign(next);
+						return;
+					}
+					const data = await r.json().catch(() => ({}));
+					const code = data.detail || 'unknown';
+					if (code === 'totp_required' && !totpStep.classList.contains('show')) {
+						totpStep.classList.add('show');
+						totpInput.focus();
+						return;
+					}
+					showErr(ERROR_MSG[code] || '로그인에 실패했습니다. (' + code + ')');
+				} catch (err) {
+					console.error(err);
+					showErr('네트워크 오류가 발생했습니다.');
+				} finally {
+					submitBtn.disabled = false;
+					submitBtn.textContent = '로그인';
+				}
+			});
+		</script>
+	</body>
+</html>
