@@ -39,6 +39,7 @@ from api.src.auth.token_service import (
 )
 from pydantic import BaseModel, Field
 from shared.auth_events import log_auth_event
+from shared.host_classifier import is_internal
 from shared.refresh_token_repository import RefreshTokenRepository
 from shared.user_repository import UserRepository, UserRow
 
@@ -174,6 +175,7 @@ async def login_endpoint(
 
     ip = request.client.host if request.client else None
     ua = request.headers.get("user-agent")
+    internal = is_internal(request.url.hostname)
     try:
         pair = do_login(
             email_enc_b64=body.email_enc,
@@ -181,7 +183,7 @@ async def login_endpoint(
             totp_code=body.totp_code,
             user_repo=user_repo,
             refresh_repo=refresh_repo,
-            ctx=LoginContext(ip=ip, user_agent=ua),
+            ctx=LoginContext(ip=ip, user_agent=ua, internal=internal),
         )
     except LoginError as e:
         return JSONResponse(status_code=e.status_code, content={"detail": e.code})

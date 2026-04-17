@@ -52,11 +52,17 @@ def issue_pair(
     *,
     repo: RefreshTokenRepository,
     previous_hash: str | None = None,
+    totp_setup_required: bool = False,
 ) -> IssuedPair:
-    """access + refresh + csrf 발급. refresh 는 DB 에 upsert."""
+    """access + refresh + csrf 발급. refresh 는 DB 에 upsert.
+
+    totp_setup_required=True 면 access/refresh 토큰에 claim 포함 →
+    프런트·백엔드가 반쪽 세션으로 인식.
+    """
     secret = _jwt_secret()
-    access, _ = issue_access_token(user_id, secret)
-    refresh, rpayload = issue_refresh_token(user_id, secret)
+    extra = {"totp_setup_required": True} if totp_setup_required else None
+    access, _ = issue_access_token(user_id, secret, extra)
+    refresh, rpayload = issue_refresh_token(user_id, secret, extra)
     repo.upsert(
         user_id=user_id,
         token_hash=hash_token(refresh),
@@ -103,7 +109,10 @@ def rotate_refresh(
         raise RefreshReuseDetected("refresh token reuse detected")
 
     new_pair = issue_pair(
-        payload.user_id, repo=repo, previous_hash=presented_hash
+        payload.user_id,
+        repo=repo,
+        previous_hash=presented_hash,
+        totp_setup_required=payload.totp_setup_required,
     )
     log_auth_event(
         "refresh_rotated", user_id=payload.user_id, ip=ip, user_agent=user_agent
