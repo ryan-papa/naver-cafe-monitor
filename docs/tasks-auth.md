@@ -12,7 +12,7 @@
 | TA-03 | 공통 암호화 유틸 (AES-GCM, HMAC-SHA256, argon2id, RSA-OAEP) | F-02, F-03, F-11 | TA-01 | Done | `feat/TA-03-crypto-utils` |
 | TA-04 | JWT 발급·검증 유틸 (access 1h / refresh 24h) + 쿠키 헬퍼 | F-05, F-07 | TA-01 | Done | `feat/TA-04-jwt` |
 | TA-05 | Rate limit 미들웨어 (IP + 계정, DB 버킷) | F-06 | TA-02 | Done | `feat/TA-05-ratelimit` |
-| TA-06 | CSRF double-submit 미들웨어 | F-05, 비기능 | TA-04 | Todo | `feat/TA-06-csrf` |
+| TA-06 | CSRF double-submit 미들웨어 | F-05, 비기능 | TA-04 | Done | `feat/TA-06-csrf` |
 | TA-07 | `auth_events` 기록 유틸 | F-15 | TA-02 | Done | `feat/TA-07-events` |
 | TA-08 | `/api/auth/public-key` 엔드포인트 | F-11 | TA-01, TA-03 | Todo | `feat/TA-08-pubkey` |
 | TA-09 | `/api/auth/signup` + `/api/auth/signup/confirm` (TOTP 발급·검증·활성화·자동로그인) | F-01~F-04, F-13 | TA-02~TA-07 | Todo | `feat/TA-09-signup` |
