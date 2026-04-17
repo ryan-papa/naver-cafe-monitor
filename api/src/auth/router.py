@@ -22,6 +22,8 @@ from api.src.auth.cookies import (
 )
 from api.src.auth.csrf import verify_csrf
 from api.src.auth.dependencies import (
+    CurrentAuth,
+    current_auth,
     current_user,
     decrypted_email_and_name,
     get_user_repository,
@@ -65,14 +67,15 @@ async def get_public_key() -> dict:
 
 
 @router.get("/me")
-async def me(user: UserRow = Depends(current_user)) -> dict:
-    email, name = decrypted_email_and_name(user)
+async def me(auth: CurrentAuth = Depends(current_auth)) -> dict:
+    email, name = decrypted_email_and_name(auth.user)
     return {
-        "id": user.id,
+        "id": auth.user.id,
         "email": email,
         "name": name,
-        "is_admin": user.is_admin,
-        "totp_enabled": user.totp_enabled,
+        "is_admin": auth.user.is_admin,
+        "totp_enabled": auth.user.totp_enabled,
+        "totp_setup_required": auth.token.totp_setup_required,
     }
 
 

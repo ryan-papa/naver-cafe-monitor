@@ -76,8 +76,8 @@ TA-25 (docs) ─ 병렬 가능, 배포 전 필수
 |----|------|-----|------|------|--------|
 | TA-26 | `shared/host_classifier.py` (suffix 기반 internal/external 분류) | F-17 | — | Done | `feat/TA-26-host-classifier` |
 | TA-27 | `login_service` 분기: 내부 bypass / 외부에서 totp_enabled=false 시 setup_required claim | F-18 | TA-26, TA-04 | Done | `feat/TA-27-login-domain-branch` |
-| TA-28 | `/api/auth/me` 에 `totp_setup_required` 필드 추가 | F-19 | TA-27 | Todo | `feat/TA-28-me-flag` |
-| TA-29 | 백엔드 가드: setup_required 토큰은 화이트리스트 경로만 허용, 나머지 403 | F-19 | TA-27 | Todo | `feat/TA-29-setup-guard` |
+| TA-28 | `/api/auth/me` 에 `totp_setup_required` 필드 추가 | F-19 | TA-27 | Done (TA-29 와 병합) | `feat/TA-28-29-me-flag-and-guard` |
+| TA-29 | 백엔드 가드: setup_required 토큰은 화이트리스트 경로만 허용, 나머지 403 | F-19 | TA-27 | Done | `feat/TA-28-29-me-flag-and-guard` |
 | TA-30 | `/api/settings/2fa` 라우터: GET 상태 / POST enable / POST reset | F-16, F-20 | TA-27 | Todo | `feat/TA-30-settings-2fa-api` |
 | TA-31 | Astro middleware 확장: `/api/auth/me` 호출해서 setup_required 면 `/settings/2fa` 로 302 | F-19 | TA-28 | Todo | `feat/TA-31-ssr-guard` |
 | TA-32 | `/settings/2fa` 페이지: 상태 기반 UI (enable or reset) + QR + 백업코드 | F-16, F-20 | TA-30, TA-31 | Todo | `feat/TA-32-settings-2fa-ui` |
