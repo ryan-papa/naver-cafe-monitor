@@ -99,6 +99,7 @@ def test_me_returns_decrypted_fields():
         "name": "Admin",
         "is_admin": True,
         "totp_enabled": False,
+        "totp_setup_required": False,
     }
 
 

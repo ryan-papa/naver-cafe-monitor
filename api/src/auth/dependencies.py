@@ -8,13 +8,35 @@ from __future__ import annotations
 import base64
 import os
 
-from fastapi import Cookie, Depends, HTTPException, status
+from dataclasses import dataclass
+
+from fastapi import Cookie, Depends, HTTPException, Request, status
 from pymysql.connections import Connection
 
-from shared.auth_tokens import ACCESS_TYPE, TokenError, verify_token
+from shared.auth_tokens import ACCESS_TYPE, TokenError, TokenPayload, verify_token
 from shared.user_repository import UserRepository, UserRow
 
 from api.src.auth.cookies import ACCESS_COOKIE
+
+
+@dataclass
+class CurrentAuth:
+    user: UserRow
+    token: TokenPayload
+
+
+# setup_required 세션에서 허용되는 경로 prefix (정확 매칭 포함)
+_SETUP_ALLOWED_PREFIXES = (
+    "/api/auth/me",
+    "/api/auth/logout",
+    "/api/auth/refresh",
+    "/api/auth/public-key",
+    "/api/settings/2fa",
+)
+
+
+def _is_setup_allowed_path(path: str) -> bool:
+    return any(path == p or path.startswith(p + "/") or path.startswith(p + "?") for p in _SETUP_ALLOWED_PREFIXES)
 
 
 def _jwt_secret() -> str:
@@ -40,10 +62,11 @@ def get_user_repository() -> UserRepository:
     return UserRepository(conn)
 
 
-async def current_user(
+async def current_auth(
+    request: Request,
     access_token: str | None = Cookie(default=None, alias=ACCESS_COOKIE),
     repo: UserRepository = Depends(get_user_repository),
-) -> UserRow:
+) -> CurrentAuth:
     if not access_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated"
@@ -60,7 +83,21 @@ async def current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
         )
-    return user
+
+    # 반쪽 세션: /api/settings/2fa, /api/auth/* 외 경로 접근 차단
+    if payload.totp_setup_required and not _is_setup_allowed_path(request.url.path):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="totp_setup_required",
+        )
+
+    return CurrentAuth(user=user, token=payload)
+
+
+async def current_user(
+    auth: CurrentAuth = Depends(current_auth),
+) -> UserRow:
+    return auth.user
 
 
 async def optional_user(
