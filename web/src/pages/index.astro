@@ -105,7 +105,9 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 			/* ── 필터 ── */
 			.filter-bar {
 				display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;
+				align-items: center;
 			}
+			.filter-bar .spacer { flex: 1; }
 			.filter-select {
 				font-size: 0.82rem; font-weight: 500; font-family: inherit;
 				border: 1px solid var(--border-color); border-radius: var(--radius-sm);
@@ -135,8 +137,9 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 				border-bottom: 1px solid var(--border-light);
 			}
 			.data-table tbody tr:last-child td { border-bottom: 0; }
-			.data-table tbody tr { transition: background 0.12s; }
+			.data-table tbody tr { transition: background 0.12s; cursor: pointer; }
 			.data-table tbody tr:hover { background: #f8fafb; }
+			.data-table tbody tr:focus { outline: 2px solid var(--color-primary); outline-offset: -2px; background: #f8fafb; }
 
 			/* ── 배지 ── */
 			.badge {
@@ -154,32 +157,6 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 			.c-pid { font-size: 0.78rem; color: var(--text-tertiary); font-variant-numeric: tabular-nums; font-weight: 500; }
 			.c-img { font-size: 0.82rem; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px; }
 			.c-date { font-size: 0.8rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
-
-			/* ── 재발송 버튼 ── */
-			.resend-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-			.btn-resend {
-				font-size: 0.75rem; font-weight: 600; font-family: inherit;
-				padding: 6px 14px; border-radius: 8px;
-				border: none; background: var(--color-primary); color: #fff;
-				cursor: pointer; transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
-				white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;
-			}
-			.btn-resend:hover:not(:disabled) {
-				background: var(--color-primary-light);
-				box-shadow: 0 2px 8px rgba(46,133,85,0.3);
-				transform: translateY(-1px);
-			}
-			.btn-resend:active:not(:disabled) { transform: translateY(0); }
-			.btn-resend:disabled { cursor: not-allowed; }
-			.btn-resend.is-loading { background: var(--color-info); }
-			.btn-resend.is-cooldown { background: var(--text-tertiary); }
-			.btn-resend .spinner {
-				width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3);
-				border-top-color: #fff; border-radius: 50%;
-				display: inline-block; animation: spin 0.6s linear infinite;
-			}
-			@keyframes spin { to { transform: rotate(360deg); } }
-			.resend-hint { font-size: 0.68rem; color: var(--text-tertiary); white-space: nowrap; }
 
 			/* ── 토스트 ── */
 			.toast-container {
@@ -211,19 +188,102 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 				border-top-color: var(--color-primary); border-radius: 50%;
 				animation: spin 0.7s linear infinite; margin-bottom: 16px;
 			}
+			@keyframes spin { to { transform: rotate(360deg); } }
 
 			/* ── 페이징 ── */
-			.paging { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 20px; }
+			.paging-wrap {
+				display: flex; justify-content: space-between; align-items: center;
+				margin-top: 20px; gap: 16px; flex-wrap: wrap;
+			}
+			.paging { display: flex; justify-content: center; align-items: center; gap: 4px; flex-wrap: wrap; }
+			.paging-meta { font-size: 0.8rem; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 			.page-btn {
 				font-size: 0.82rem; font-weight: 600; font-family: inherit;
-				padding: 8px 16px; border-radius: var(--radius-sm);
+				min-width: 36px; height: 36px; padding: 0 10px; border-radius: var(--radius-sm);
 				border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary);
-				cursor: pointer; transition: all 0.15s; text-decoration: none;
-				display: inline-flex; align-items: center; gap: 4px;
+				cursor: pointer; transition: all 0.15s;
+				display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+				font-variant-numeric: tabular-nums;
 			}
-			.page-btn:hover:not(.page-btn-disabled) { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-lightest); }
-			.page-btn-disabled { opacity: 0.4; cursor: default; pointer-events: none; }
-			.page-info { font-size: 0.82rem; color: var(--text-tertiary); font-weight: 500; padding: 0 8px; }
+			.page-btn:hover:not(:disabled):not(.is-current) { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-lightest); }
+			.page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+			.page-btn.is-current { background: var(--color-primary); color: #fff; border-color: var(--color-primary); cursor: default; }
+
+			/* ── 모달 ── */
+			.modal-backdrop {
+				position: fixed; inset: 0; background: rgba(28,30,33,0.5);
+				display: none; align-items: center; justify-content: center;
+				z-index: 1000; padding: 24px;
+				animation: fade-in 0.15s ease-out;
+			}
+			.modal-backdrop.is-open { display: flex; }
+			@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+			.modal {
+				background: var(--bg-surface); border-radius: var(--radius);
+				max-width: 720px; width: 100%; max-height: 85vh;
+				display: flex; flex-direction: column;
+				box-shadow: var(--shadow-lg);
+				animation: modal-in 0.2s cubic-bezier(0.21,1.02,0.73,1);
+			}
+			@keyframes modal-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+			.modal-header {
+				padding: 18px 24px; border-bottom: 1px solid var(--border-color);
+				display: flex; align-items: center; justify-content: space-between; gap: 12px;
+			}
+			.modal-header h3 { font-size: 1rem; font-weight: 700; flex: 1; min-width: 0; }
+			.modal-close {
+				background: transparent; border: none; cursor: pointer;
+				width: 32px; height: 32px; border-radius: 8px;
+				display: inline-flex; align-items: center; justify-content: center;
+				color: var(--text-tertiary); font-size: 1.1rem;
+				transition: background 0.15s, color 0.15s;
+			}
+			.modal-close:hover { background: var(--bg-main); color: var(--text-primary); }
+			.modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+			.modal-footer {
+				padding: 14px 24px; border-top: 1px solid var(--border-color);
+				display: flex; justify-content: flex-end; align-items: center; gap: 10px;
+			}
+			.modal-section { margin-bottom: 20px; }
+			.modal-section:last-child { margin-bottom: 0; }
+			.modal-section h4 {
+				font-size: 0.72rem; font-weight: 700; color: var(--text-tertiary);
+				letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px;
+			}
+			.modal-meta { display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.82rem; color: var(--text-secondary); }
+			.modal-meta strong { font-weight: 600; color: var(--text-primary); }
+			.modal-meta a { color: var(--color-info); text-decoration: none; }
+			.modal-meta a:hover { text-decoration: underline; }
+			.modal-body-text, .kakao-block {
+				font-size: 0.88rem; line-height: 1.7;
+				white-space: pre-wrap; word-break: break-word;
+				background: var(--bg-main); border: 1px solid var(--border-light);
+				border-radius: var(--radius-sm); padding: 14px 16px;
+				font-family: inherit;
+			}
+			.kakao-block + .kakao-block { margin-top: 10px; }
+			.kakao-empty { font-size: 0.82rem; color: var(--text-tertiary); font-style: italic; }
+
+			.btn-primary, .btn-secondary {
+				font-size: 0.85rem; font-weight: 600; font-family: inherit;
+				padding: 9px 18px; border-radius: 8px;
+				border: 1px solid transparent; cursor: pointer;
+				transition: background 0.15s, border-color 0.15s, transform 0.1s;
+				display: inline-flex; align-items: center; gap: 6px;
+			}
+			.btn-primary { background: var(--color-primary); color: #fff; }
+			.btn-primary:hover:not(:disabled) { background: var(--color-primary-light); transform: translateY(-1px); }
+			.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+			.btn-primary.is-loading { background: var(--color-info); }
+			.btn-primary.is-cooldown { background: var(--text-tertiary); }
+			.btn-secondary { background: transparent; border-color: var(--border-color); color: var(--text-primary); }
+			.btn-secondary:hover { background: var(--bg-main); }
+			.spinner {
+				width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3);
+				border-top-color: #fff; border-radius: 50%;
+				display: inline-block; animation: spin 0.6s linear infinite;
+			}
+			.resend-hint { font-size: 0.72rem; color: var(--text-tertiary); margin-right: auto; }
 
 			/* ── 반응형 ── */
 			@media (max-width: 768px) {
@@ -234,6 +294,8 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 				.data-table .col-hide { display: none; }
 				.data-table thead th, .data-table tbody td { padding: 12px 14px; }
 				.container { padding: 0 16px; }
+				.modal { max-height: 92vh; }
+				.paging-wrap { justify-content: center; }
 			}
 		</style>
 	</head>
@@ -288,6 +350,12 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 					<option value="DESC">최신순</option>
 					<option value="ASC">오래된순</option>
 				</select>
+				<span class="spacer"></span>
+				<select class="filter-select" id="page-size" aria-label="페이지당 표시 수">
+					<option value="10">10개씩</option>
+					<option value="30" selected>30개씩</option>
+					<option value="50">50개씩</option>
+				</select>
 			</div>
 
 			<!-- 테이블 -->
@@ -301,18 +369,65 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 			</section>
 
 			<!-- 페이징 -->
-			<div id="pagination" class="paging"></div>
+			<div class="paging-wrap">
+				<span class="paging-meta" id="paging-meta"></span>
+				<nav class="paging" id="pagination" aria-label="페이지 이동"></nav>
+			</div>
 		</main>
 
-		<script define:vars={{ API_BASE }}>
-			let currentOffset = 0;
-			const LIMIT = 20;
+		<!-- 상세 모달 -->
+		<div class="modal-backdrop" id="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-hidden="true">
+			<div class="modal" role="document">
+				<header class="modal-header">
+					<h3 id="modal-title">게시물 상세</h3>
+					<button type="button" class="modal-close" id="modal-close" aria-label="닫기"><i class="bi bi-x-lg"></i></button>
+				</header>
+				<div class="modal-body" id="modal-body"></div>
+				<footer class="modal-footer" id="modal-footer"></footer>
+			</div>
+		</div>
 
+		<script define:vars={{ API_BASE }}>
+			// ── 상태 ──
+			const DEFAULT_SIZE = 30;
+			const VALID_SIZES = [10, 30, 50];
+			const state = {
+				page: 1,       // 1-based
+				size: DEFAULT_SIZE,
+				total: 0,
+			};
+
+			// ── URL 동기화 ──
+			function readUrl() {
+				const u = new URL(window.location.href);
+				const p = parseInt(u.searchParams.get('page') || '1', 10);
+				const s = parseInt(u.searchParams.get('size') || `${DEFAULT_SIZE}`, 10);
+				state.page = Number.isFinite(p) && p >= 1 ? p : 1;
+				state.size = VALID_SIZES.includes(s) ? s : DEFAULT_SIZE;
+				const b = u.searchParams.get('board') || '';
+				const st = u.searchParams.get('status') || '';
+				const sb = u.searchParams.get('sort') || 'reg_ts';
+				const so = u.searchParams.get('order') || 'DESC';
+				return { board: b, status: st, sortBy: sb, sortOrder: so };
+			}
+
+			function writeUrl({ board, status, sortBy, sortOrder }) {
+				const u = new URL(window.location.href);
+				u.searchParams.set('page', String(state.page));
+				u.searchParams.set('size', String(state.size));
+				if (board) u.searchParams.set('board', board); else u.searchParams.delete('board');
+				if (status) u.searchParams.set('status', status); else u.searchParams.delete('status');
+				u.searchParams.set('sort', sortBy);
+				u.searchParams.set('order', sortOrder);
+				window.history.replaceState(null, '', u);
+			}
+
+			// ── 유틸 ──
 			const B = {
 				board(id) {
 					if (id === 'menus/6') return '<span class="badge badge-notice">공지</span>';
 					if (id === 'menus/13') return '<span class="badge badge-photo">사진</span>';
-					return `<span class="badge">${id}</span>`;
+					return `<span class="badge">${escapeHtml(id)}</span>`;
 				},
 				status(s) {
 					return s === 'SUCCESS'
@@ -321,18 +436,47 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 				},
 				date(s) {
 					if (!s) return '<span class="c-date">-</span>';
-					return `<span class="c-date">${s.replace('T',' ').slice(0,16)}</span>`;
+					return `<span class="c-date">${escapeHtml(s.replace('T',' ').slice(0,16))}</span>`;
 				},
 			};
 
-			async function load(offset = 0) {
-				const board = document.getElementById('filter-board').value;
-				const status = document.getElementById('filter-status').value;
-				const sortBy = document.getElementById('sort-by').value;
-				const sortOrder = document.getElementById('sort-order').value;
-				const p = new URLSearchParams({ offset, limit: LIMIT, sort_by: sortBy, sort_order: sortOrder });
-				if (board) p.set('board_id', board);
-				if (status) p.set('status', status);
+			function escapeHtml(v) {
+				return String(v ?? '').replace(/[&<>"']/g, c => ({
+					'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+				}[c]));
+			}
+
+			// ── 토스트 ──
+			function showToast(msg, ok = true) {
+				const c = document.getElementById('toast-container');
+				const el = document.createElement('div');
+				el.className = `toast-msg ${ok ? 'toast-ok' : 'toast-err'}`;
+				el.textContent = msg;
+				c.appendChild(el);
+				setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3000);
+			}
+
+			// ── 데이터 로드 ──
+			function getFilters() {
+				return {
+					board: document.getElementById('filter-board').value,
+					status: document.getElementById('filter-status').value,
+					sortBy: document.getElementById('sort-by').value,
+					sortOrder: document.getElementById('sort-order').value,
+				};
+			}
+
+			async function load() {
+				const f = getFilters();
+				const offset = (state.page - 1) * state.size;
+				const p = new URLSearchParams({
+					offset: String(offset),
+					limit: String(state.size),
+					sort_by: f.sortBy,
+					sort_order: f.sortOrder,
+				});
+				if (f.board) p.set('board_id', f.board);
+				if (f.status) p.set('status', f.status);
 
 				const el = document.getElementById('table-container');
 				el.innerHTML = '<div class="state-box"><div class="loader"></div><p>불러오는 중</p></div>';
@@ -341,13 +485,24 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 					const r = await fetch(`${API_BASE}/api/posts?${p}`);
 					if (!r.ok) throw new Error(r.status);
 					const d = await r.json();
-					currentOffset = offset;
+					state.total = d.total;
+
+					// 범위 초과 시 마지막 페이지로 자동 이동
+					const totalPages = Math.max(1, Math.ceil(d.total / state.size));
+					if (d.total > 0 && state.page > totalPages) {
+						state.page = totalPages;
+						writeUrl(f);
+						return load();
+					}
+
+					writeUrl(f);
 					render(d);
-					paging(d);
+					renderPaging();
 					stats();
 				} catch {
 					el.innerHTML = '<div class="state-box"><div class="ico"><i class="bi bi-wifi-off"></i></div><h6>연결할 수 없어요</h6><p>API 서버가 실행 중인지 확인해주세요</p></div>';
 					document.getElementById('pagination').innerHTML = '';
+					document.getElementById('paging-meta').textContent = '';
 				}
 			}
 
@@ -366,26 +521,202 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 				} catch {}
 			}
 
-			// ── 토스트 ──
-			function showToast(msg, ok = true) {
-				const c = document.getElementById('toast-container');
-				const el = document.createElement('div');
-				el.className = `toast-msg ${ok ? 'toast-ok' : 'toast-err'}`;
-				el.textContent = msg;
-				c.appendChild(el);
-				setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3000);
+			function render(d) {
+				const el = document.getElementById('table-container');
+				if (!d.items.length) {
+					el.innerHTML = '<div class="state-box"><div class="ico"><i class="bi bi-inbox"></i></div><h6>데이터가 없어요</h6><p>조건에 맞는 결과가 없어요. 필터를 변경해보세요.</p></div>';
+					return;
+				}
+				let h = `<table class="data-table"><thead><tr>
+					<th>게시판</th><th>번호</th><th>제목</th>
+					<th class="col-hide">이미지</th><th>상태</th>
+					<th class="col-hide">처리일시</th>
+				</tr></thead><tbody>`;
+				for (const r of d.items) {
+					h += `<tr data-id="${r.id}" tabindex="0" role="button" aria-label="게시물 상세 보기: ${escapeHtml(r.title || '제목없음')}">
+						<td>${B.board(r.board_id)}</td>
+						<td><span class="c-pid">${r.post_id}</span></td>
+						<td><span class="c-title">${escapeHtml(r.title || '-')}</span></td>
+						<td class="col-hide">
+							${r.image_count ? `<span class="c-img"><i class="bi bi-image"></i> ${r.image_count}</span>` : '<span class="c-img">-</span>'}
+						</td>
+						<td>${B.status(r.status)}</td>
+						<td class="col-hide">${B.date(r.reg_ts)}</td>
+					</tr>`;
+				}
+				h += '</tbody></table>';
+				el.innerHTML = h;
+
+				// 행 클릭/Enter → 모달 오픈
+				el.querySelectorAll('tbody tr').forEach(tr => {
+					const id = parseInt(tr.dataset.id, 10);
+					tr.addEventListener('click', () => openModal(id));
+					tr.addEventListener('keydown', e => {
+						if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModal(id); }
+					});
+				});
 			}
 
-			// ── 재발송 ──
-			const cooldowns = new Map();
+			// ── 페이지네이션 ──
+			function pageNumbers(current, total) {
+				// 현재 페이지 기준 ±2 + 첫/끝 번호 + 줄임표
+				const result = new Set();
+				for (let i = current - 2; i <= current + 2; i++) {
+					if (i >= 1 && i <= total) result.add(i);
+				}
+				result.add(1);
+				result.add(total);
+				const sorted = [...result].sort((a, b) => a - b);
+				const out = [];
+				let prev = 0;
+				for (const n of sorted) {
+					if (prev && n - prev > 1) out.push('…');
+					out.push(n);
+					prev = n;
+				}
+				return out;
+			}
 
-			window.resend = async function resend(id, btn) {
-				if (cooldowns.has(id)) return;
-				const wrap = btn.closest('.resend-wrap');
-				const hint = wrap.querySelector('.resend-hint');
+			function renderPaging() {
+				const el = document.getElementById('pagination');
+				const meta = document.getElementById('paging-meta');
+				const total = state.total;
+				const size = state.size;
+				const totalPages = Math.max(1, Math.ceil(total / size));
+				const current = Math.min(state.page, totalPages);
 
+				if (total === 0) {
+					el.innerHTML = '';
+					meta.textContent = '';
+					return;
+				}
+
+				const start = (current - 1) * size + 1;
+				const end = Math.min(current * size, total);
+				meta.textContent = `총 ${total.toLocaleString()}건 · ${start.toLocaleString()}-${end.toLocaleString()}`;
+
+				const atFirst = current <= 1;
+				const atLast = current >= totalPages;
+
+				let h = '';
+				h += `<button class="page-btn" data-go="1" aria-label="맨 앞 페이지" ${atFirst ? 'disabled' : ''}><i class="bi bi-chevron-double-left"></i></button>`;
+				h += `<button class="page-btn" data-go="${current - 1}" aria-label="이전 페이지" ${atFirst ? 'disabled' : ''}><i class="bi bi-chevron-left"></i></button>`;
+
+				for (const n of pageNumbers(current, totalPages)) {
+					if (n === '…') {
+						h += `<span class="page-btn" style="border-color:transparent;cursor:default;" aria-hidden="true">…</span>`;
+					} else {
+						const cur = n === current ? ' is-current' : '';
+						const cls = `page-btn${cur}`;
+						const aria = n === current ? ' aria-current="page"' : '';
+						h += `<button class="${cls}" data-go="${n}"${aria}>${n}</button>`;
+					}
+				}
+
+				h += `<button class="page-btn" data-go="${current + 1}" aria-label="다음 페이지" ${atLast ? 'disabled' : ''}><i class="bi bi-chevron-right"></i></button>`;
+				h += `<button class="page-btn" data-go="${totalPages}" aria-label="맨 뒤 페이지" ${atLast ? 'disabled' : ''}><i class="bi bi-chevron-double-right"></i></button>`;
+
+				el.innerHTML = h;
+				el.querySelectorAll('button.page-btn').forEach(btn => {
+					btn.addEventListener('click', () => {
+						const n = parseInt(btn.dataset.go, 10);
+						if (!Number.isFinite(n) || n < 1 || n > totalPages || n === current) return;
+						state.page = n;
+						load();
+					});
+				});
+			}
+
+			// ── 상세 모달 ──
+			const backdrop = document.getElementById('modal-backdrop');
+			const modalBody = document.getElementById('modal-body');
+			const modalFooter = document.getElementById('modal-footer');
+			const modalTitle = document.getElementById('modal-title');
+			const modalClose = document.getElementById('modal-close');
+			let lastFocused = null;
+			let cooldownTimer = null;
+
+			async function openModal(id) {
+				lastFocused = document.activeElement;
+				backdrop.classList.add('is-open');
+				backdrop.setAttribute('aria-hidden', 'false');
+				modalBody.innerHTML = '<div class="state-box" style="padding:40px 20px;min-height:180px;"><div class="loader"></div><p>불러오는 중</p></div>';
+				modalFooter.innerHTML = '';
+				modalClose.focus();
+
+				try {
+					const r = await fetch(`${API_BASE}/api/posts/${id}`);
+					if (!r.ok) throw new Error(r.status);
+					const d = await r.json();
+					renderModal(d);
+				} catch (e) {
+					modalBody.innerHTML = `<div class="state-box" style="padding:40px 20px;min-height:180px;"><div class="ico"><i class="bi bi-exclamation-triangle"></i></div><h6>불러오기 실패</h6><p>${escapeHtml(e.message || '알 수 없는 오류')}</p></div>`;
+				}
+			}
+
+			function renderModal(d) {
+				modalTitle.textContent = d.title || '제목없음';
+
+				const boardLabel = d.board_id === 'menus/6' ? '공지사항' : d.board_id === 'menus/13' ? '사진' : d.board_id;
+				const postDate = d.post_date ? d.post_date.replace('T',' ').slice(0,16) : '-';
+				const regTs = d.reg_ts ? d.reg_ts.replace('T',' ').slice(0,16) : '-';
+				const statusLabel = d.status === 'SUCCESS' ? '성공' : '실패';
+
+				let bodyHtml = '';
+
+				// 메타 섹션
+				bodyHtml += `<div class="modal-section">
+					<h4>정보</h4>
+					<div class="modal-meta">
+						<span>게시판: <strong>${escapeHtml(boardLabel)}</strong></span>
+						<span>번호: <strong>${d.post_id}</strong></span>
+						<span>상태: <strong>${escapeHtml(statusLabel)}</strong></span>
+						<span>게시일: <strong>${escapeHtml(postDate)}</strong></span>
+						<span>처리일시: <strong>${escapeHtml(regTs)}</strong></span>
+						${d.image_count ? `<span>이미지: <strong>${d.image_count}장</strong></span>` : ''}
+						<span>원문: <a href="${escapeHtml(d.post_url)}" target="_blank" rel="noopener noreferrer">카페에서 보기 <i class="bi bi-box-arrow-up-right"></i></a></span>
+					</div>
+				</div>`;
+
+				// 본문 요약
+				bodyHtml += `<div class="modal-section">
+					<h4>본문 요약</h4>
+					<div class="modal-body-text">${escapeHtml(d.summary) || '<span class="kakao-empty">요약 내용이 없어요</span>'}</div>
+				</div>`;
+
+				// 카톡 전송 내용
+				const msgs = Array.isArray(d.kakao_messages) ? d.kakao_messages : [];
+				let kakaoHtml = '';
+				if (msgs.length === 0) {
+					kakaoHtml = '<div class="kakao-empty">전송할 내용이 없어요</div>';
+				} else {
+					kakaoHtml = msgs.map(m => `<div class="kakao-block">${escapeHtml(m)}</div>`).join('');
+				}
+				bodyHtml += `<div class="modal-section">
+					<h4>카카오톡 전송 내용</h4>
+					${kakaoHtml}
+				</div>`;
+
+				modalBody.innerHTML = bodyHtml;
+
+				// 푸터: 재발송 + 닫기
+				const canResend = d.status === 'SUCCESS' && msgs.length > 0;
+				modalFooter.innerHTML = `
+					<span class="resend-hint" id="resend-hint"></span>
+					<button type="button" class="btn-secondary" id="btn-modal-cancel">닫기</button>
+					<button type="button" class="btn-primary" id="btn-modal-resend" ${canResend ? '' : 'disabled'} data-id="${d.id}">
+						<i class="bi bi-send"></i> 재발송
+					</button>`;
+
+				document.getElementById('btn-modal-cancel').addEventListener('click', closeModal);
+				const resendBtn = document.getElementById('btn-modal-resend');
+				if (canResend) resendBtn.addEventListener('click', () => handleResend(d.id, resendBtn));
+			}
+
+			async function handleResend(id, btn) {
+				const hint = document.getElementById('resend-hint');
 				btn.disabled = true;
-				btn.className = 'btn-resend is-loading';
+				btn.classList.add('is-loading');
 				btn.innerHTML = '<span class="spinner"></span> 요청 중...';
 				hint.textContent = '카카오톡 발송을 요청했어요';
 
@@ -399,80 +730,87 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "/naver-cafe-monitoring";
 				} catch (e) {
 					showToast(`발송 실패: ${e.message}`, false);
 					btn.disabled = false;
-					btn.className = 'btn-resend';
-					btn.textContent = '재발송';
+					btn.classList.remove('is-loading');
+					btn.innerHTML = '<i class="bi bi-send"></i> 재발송';
 					hint.textContent = '';
 					return;
 				}
 
+				// 쿨다운 30초
 				let sec = 30;
-				cooldowns.set(id, true);
-				btn.className = 'btn-resend is-cooldown';
-				btn.textContent = `${sec}초`;
+				btn.classList.remove('is-loading');
+				btn.classList.add('is-cooldown');
+				btn.textContent = `${sec}초 대기`;
 				hint.textContent = `${sec}초 뒤에 다시 할 수 있어요`;
-				const iv = setInterval(() => {
+				if (cooldownTimer) clearInterval(cooldownTimer);
+				cooldownTimer = setInterval(() => {
 					sec--;
 					if (sec <= 0) {
-						clearInterval(iv);
-						cooldowns.delete(id);
+						clearInterval(cooldownTimer);
+						cooldownTimer = null;
 						btn.disabled = false;
-						btn.className = 'btn-resend';
-						btn.textContent = '재발송';
+						btn.classList.remove('is-cooldown');
+						btn.innerHTML = '<i class="bi bi-send"></i> 재발송';
 						hint.textContent = '';
 					} else {
-						btn.textContent = `${sec}초`;
+						btn.textContent = `${sec}초 대기`;
 						hint.textContent = `${sec}초 뒤에 다시 할 수 있어요`;
 					}
 				}, 1000);
 			}
 
-			function render(d) {
-				const el = document.getElementById('table-container');
-				if (!d.items.length) {
-					el.innerHTML = '<div class="state-box"><div class="ico"><i class="bi bi-inbox"></i></div><h6>데이터가 없어요</h6><p>조건에 맞는 결과가 없어요. 필터를 변경해보세요.</p></div>';
-					return;
-				}
-				let h = `<table class="data-table"><thead><tr>
-					<th>게시판</th><th>번호</th><th>제목</th>
-					<th class="col-hide">이미지</th><th>상태</th>
-					<th class="col-hide">처리일시</th>
-					<th></th>
-				</tr></thead><tbody>`;
-				for (const r of d.items) {
-					const canResend = r.status === 'SUCCESS' && r.summary;
-					h += `<tr>
-						<td>${B.board(r.board_id)}</td>
-						<td><span class="c-pid">${r.post_id}</span></td>
-						<td><span class="c-title">${r.title || '-'}</span></td>
-						<td class="col-hide">
-							${r.image_count ? `<span class="c-img"><i class="bi bi-image"></i> ${r.image_count}</span>` : '<span class="c-img">-</span>'}
-						</td>
-						<td>${B.status(r.status)}</td>
-						<td class="col-hide">${B.date(r.reg_ts)}</td>
-						<td>${canResend ? `<div class="resend-wrap"><button class="btn-resend" onclick="resend(${r.id}, this)">재발송</button><span class="resend-hint"></span></div>` : ''}</td>
-					</tr>`;
-				}
-				h += '</tbody></table>';
-				el.innerHTML = h;
+			function closeModal() {
+				backdrop.classList.remove('is-open');
+				backdrop.setAttribute('aria-hidden', 'true');
+				if (cooldownTimer) { clearInterval(cooldownTimer); cooldownTimer = null; }
+				if (lastFocused && lastFocused.focus) lastFocused.focus();
 			}
 
-			function paging(d) {
-				const el = document.getElementById('pagination');
-				if (d.total <= LIMIT) { el.innerHTML = ''; return; }
-				const pg = Math.floor(d.offset / LIMIT) + 1;
-				const tot = Math.ceil(d.total / LIMIT);
-				const prevCls = d.offset <= 0 ? ' page-btn-disabled' : '';
-				const nextCls = d.offset + LIMIT >= d.total ? ' page-btn-disabled' : '';
-				el.innerHTML = `
-					<button class="page-btn${prevCls}" id="pp"><i class="bi bi-chevron-left"></i> 이전</button>
-					<span class="page-info">${pg} / ${tot}</span>
-					<button class="page-btn${nextCls}" id="pn">다음 <i class="bi bi-chevron-right"></i></button>`;
-				document.getElementById('pp')?.addEventListener('click', () => load(currentOffset - LIMIT));
-				document.getElementById('pn')?.addEventListener('click', () => load(currentOffset + LIMIT));
-			}
+			// 모달 이벤트
+			modalClose.addEventListener('click', closeModal);
+			backdrop.addEventListener('click', e => { if (e.target === backdrop) closeModal(); });
+			document.addEventListener('keydown', e => {
+				if (e.key === 'Escape' && backdrop.classList.contains('is-open')) closeModal();
+				// 포커스 트랩
+				if (e.key === 'Tab' && backdrop.classList.contains('is-open')) {
+					const focusables = backdrop.querySelectorAll('button, a[href], [tabindex]:not([tabindex="-1"])');
+					if (!focusables.length) return;
+					const first = focusables[0];
+					const last = focusables[focusables.length - 1];
+					if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+					else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+				}
+			});
 
-			document.querySelectorAll('select').forEach(s => s.addEventListener('change', () => load(0)));
-			load(0);
+			// ── 초기화 + 이벤트 바인딩 ──
+			const init = readUrl();
+			document.getElementById('filter-board').value = init.board;
+			document.getElementById('filter-status').value = init.status;
+			document.getElementById('sort-by').value = init.sortBy;
+			document.getElementById('sort-order').value = init.sortOrder;
+			document.getElementById('page-size').value = String(state.size);
+
+			document.querySelectorAll('#filter-board, #filter-status, #sort-by, #sort-order').forEach(s => {
+				s.addEventListener('change', () => { state.page = 1; load(); });
+			});
+			document.getElementById('page-size').addEventListener('change', e => {
+				const v = parseInt(e.target.value, 10);
+				state.size = VALID_SIZES.includes(v) ? v : DEFAULT_SIZE;
+				state.page = 1;
+				load();
+			});
+
+			window.addEventListener('popstate', () => {
+				const u = readUrl();
+				document.getElementById('filter-board').value = u.board;
+				document.getElementById('filter-status').value = u.status;
+				document.getElementById('sort-by').value = u.sortBy;
+				document.getElementById('sort-order').value = u.sortOrder;
+				document.getElementById('page-size').value = String(state.size);
+				load();
+			});
+
+			load();
 		</script>
 	</body>
 </html>
