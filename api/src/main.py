@@ -78,7 +78,9 @@ def list_posts(
 
 @app.get("/api/posts/{record_id}")
 def get_post(record_id: int, repo: PostRepository = Depends(get_repo)):
-    """게시글 단건 상세 조회."""
+    """게시글 단건 상세 조회 — 카카오톡 재구성 메시지 + 원본 URL 포함."""
+    from shared.kakao_format import reconstruct_kakao_messages
+
     row = repo.find_by_id(record_id)
 
     if not row:
@@ -87,6 +89,13 @@ def get_post(record_id: int, repo: PostRepository = Depends(get_repo)):
     for key in ("reg_ts", "upd_ts", "post_date"):
         if key in row and row[key] is not None:
             row[key] = str(row[key])
+
+    row["kakao_messages"] = reconstruct_kakao_messages(
+        board_id=row.get("board_id", ""),
+        title=row.get("title"),
+        summary=row.get("summary"),
+    )
+    row["post_url"] = f"https://m.cafe.naver.com/sewhakinder/{row.get('post_id', '')}"
 
     return row
 
@@ -131,7 +140,7 @@ def resend_post(record_id: int, repo: PostRepository = Depends(get_repo)):
         messenger.send_notice_summary(title=title, summary=summary, post_url=post_url)
     else:
         messenger._send_chunked(
-            f"[재발송] {title}\n\n{summary}",
+            f"[재발송] {title}\n\n{summary.strip()}",
             link_url=post_url,
             button_label="카페에서 원문 보기",
         )

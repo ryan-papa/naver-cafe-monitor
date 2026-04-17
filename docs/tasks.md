@@ -79,3 +79,24 @@ T-27 (CSS 리디자인) ─────────────────┐
 T-28 (재발송 API) ──┬── T-29 (프론트) ├── 완료
                     └── T-30 (테스트) ┘
 ```
+
+## 대시보드 페이지네이션 + 상세 모달
+
+**PRD:** `docs/prd/20260417_195324_dashboard-pagination-detail-modal_ce169293.md`
+**통합 브랜치:** `feat/dashboard-pagination-detail-modal`
+
+| ID | 설명 | PRD | 우선순위 | 상태 | 브랜치 |
+|----|------|-----|----------|------|--------|
+| T-31 | 페이지네이션 UI (맨앞/앞/번호±2/뒤/맨뒤) + 페이지크기 Select(10/30/50, 기본 30) + 상태 관리 + API offset/limit 연동 + 빈 상태·범위 초과 처리 | F-01, F-02, F-09 | High | Todo | `feat/T-31-pagination` |
+| T-32 | 게시물 상세 모달 — 본문 영역 (제목·날짜·요약·원본 URL) + 열기/닫기/ESC/배경 클릭 + 포커스 트랩 | F-03, F-04, F-07 | High | Todo | `feat/T-32-detail-modal` |
+| T-33 | 모달 내 카카오톡 전송 내용 재구성 (`send_notice_summary` 포맷 모사, `[일정 정리]` 분리 2블록) + 단위 테스트 | F-05 | High | Todo | `feat/T-33-kakao-render` |
+| T-34 | 재발송 버튼 모달로 이동 + 기존 리스트 행 버튼 제거 (SUCCESS 상태만 활성, 로딩/에러 처리) | F-06 | High | Todo | `feat/T-34-resend-relocate` |
+| T-35 | URL 상태 동기화 (`?page=N&size=S`) — 새로고침·뒤로가기 복원 | F-08 | Mid | Todo | `feat/T-35-url-sync` |
+
+### 의존성 그래프
+
+```
+T-31 ──┬── T-32 ──┬── T-33
+       │          └── T-34
+       └── T-35
+```
