@@ -94,6 +94,7 @@
 
 		<script>
 			import { fetchPublicKey, encryptField } from '../lib/auth-client';
+			import { otpauthToDataUrl } from '../lib/qr';
 
 			const errBox = document.getElementById('err') as HTMLDivElement;
 			const boxes = [1, 2, 3].map((i) => document.getElementById('step-' + i) as HTMLElement);
@@ -163,7 +164,7 @@
 					const data = await r.json();
 					pendingToken = data.pending_token;
 					const qrImg = document.getElementById('qr-img') as HTMLImageElement;
-					qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data.otpauth_url)}`;
+					qrImg.src = await otpauthToDataUrl(data.otpauth_url);
 					const ul = document.getElementById('codes') as HTMLUListElement;
 					ul.innerHTML = '';
 					for (const c of data.backup_codes) {

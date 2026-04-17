@@ -102,6 +102,7 @@
 
 		<script>
 			import { csrfFetch, fetchPublicKey, encryptField } from '../../lib/auth-client';
+			import { otpauthToDataUrl } from '../../lib/qr';
 
 			const errBox = document.getElementById('err') as HTMLDivElement;
 			const loading = document.getElementById('loading') as HTMLDivElement;
@@ -120,8 +121,8 @@
 				second_factor_invalid: 'TOTP 또는 백업 코드를 확인해주세요.',
 			};
 
-			function qrUrl(otpauth: string): string {
-				return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauth)}`;
+			async function setQr(img: HTMLImageElement, otpauth: string) {
+				img.src = await otpauthToDataUrl(otpauth);
 			}
 			function renderCodes(list: string[], ul: HTMLUListElement) {
 				ul.innerHTML = '';
@@ -149,7 +150,7 @@
 				const r = await csrfFetch('/api/settings/2fa/init', { method: 'POST' });
 				if (!r.ok) { showErr('초기화 실패'); return; }
 				const data = await r.json();
-				(document.getElementById('setup-qr') as HTMLImageElement).src = qrUrl(data.otpauth_url);
+				await setQr(document.getElementById('setup-qr') as HTMLImageElement, data.otpauth_url);
 				if (data.backup_codes) {
 					(document.getElementById('setup-codes-wrap') as HTMLElement).style.display = 'block';
 					renderCodes(data.backup_codes, document.getElementById('setup-codes') as HTMLUListElement);
@@ -206,7 +207,7 @@
 						return;
 					}
 					const data = await r.json();
-					(document.getElementById('reset-qr') as HTMLImageElement).src = qrUrl(data.otpauth_url);
+					await setQr(document.getElementById('reset-qr') as HTMLImageElement, data.otpauth_url);
 					renderCodes(data.backup_codes, document.getElementById('reset-codes') as HTMLUListElement);
 					(document.getElementById('reset-result') as HTMLElement).style.display = 'block';
 				} catch (e) {
