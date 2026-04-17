@@ -70,7 +70,15 @@ def render_dotenv(env: dict[str, str]) -> str:
 
 def sops_decrypt(env_enc: Path) -> str:
     result = subprocess.run(
-        ["sops", "-d", str(env_enc)],
+        [
+            "sops",
+            "-d",
+            "--input-type",
+            "dotenv",
+            "--output-type",
+            "dotenv",
+            str(env_enc),
+        ],
         check=True,
         capture_output=True,
         text=True,
@@ -89,6 +97,8 @@ def sops_encrypt(plain: str, env_enc: Path) -> None:
                 "dotenv",
                 "--output-type",
                 "dotenv",
+                "--filename-override",
+                env_enc.name,
                 "/dev/stdin",
             ],
             input=plain,
