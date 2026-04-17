@@ -25,11 +25,13 @@ from shared.user_repository import UserRow
 from api.src.auth.csrf import verify_csrf
 from api.src.auth.dependencies import current_user
 from api.src.auth.router import router as auth_router
+from api.src.auth.settings_2fa import router as settings_2fa_router
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Naver Cafe Monitor API", version="0.1.0")
 app.include_router(auth_router)
+app.include_router(settings_2fa_router)
 
 app.add_middleware(
     CORSMiddleware,
