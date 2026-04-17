@@ -1,0 +1,8 @@
+creation_rules:
+  - path_regex: (^|/)\.env(\.enc)?$
+    key_groups:
+      - age:
+          # 맥미니
+          - age1peh6k3p4z0087q3gqw8ua4wllz9fwlk4m7ctyr35tngcf8d2qpqsf9lk94
+          # 노트북
+          - age1302kyh3u72a9njreq8chwqckwzpuzjyrwapw7360m7e90dz2a40qme5mqu

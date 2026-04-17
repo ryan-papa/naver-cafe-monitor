@@ -53,8 +53,8 @@
     53|    53|      - "3306:3306"
     54|    54|    environment:
     55|    55|      - MYSQL_ROOT_PASSWORD=${MYSQ...ORD}
-    56|    56|      - DEV_READWRITE_PWD=${DEV_READWRITE_PWD}
-    57|    57|      - ALL_READONLY_PWD=${ALL_READONLY_PWD}
+    56|    56|      - RP_READWRITE_PWD=${RP_READWRITE_PWD}
+    57|    57|      - RP_READONLY_PWD=${RP_READONLY_PWD}
     58|    58|    command: >
     59|    59|      --require-secure-transport=ON
     60|    60|      --ssl-ca=/etc/mysql/ssl/ca-cert.pem
@@ -88,8 +88,8 @@
     88|    88|      - POSTGRES_PASSWORD=${POST...ORD}
     89|    89|      - POSTGRES_USER=postgres
     90|    90|      - POSTGRES_DB=postgres
-    91|    91|      - DEV_READWRITE_PWD=${DEV_READWRITE_PWD}
-    92|    92|      - ALL_READONLY_PWD=${ALL_READONLY_PWD}
+    91|    91|      - RP_READWRITE_PWD=${RP_READWRITE_PWD}
+    92|    92|      - RP_READONLY_PWD=${RP_READONLY_PWD}
     93|    93|      - PGDATA=/var/lib/postgresql/data/pgdata
     94|    94|    command: >
     95|    95|      -c ssl=on

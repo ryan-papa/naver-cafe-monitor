@@ -1,5 +1,5 @@
 -- naver_cafe_monitor DDL
--- 실행: mysql -h eepp.shop -u REDACTED_USER -p < db/ddl.sql
+-- 실행: mysql -h eepp.shop -u rp_readwrite -p < db/ddl.sql
 
 CREATE DATABASE IF NOT EXISTS naver_cafe_monitor
     DEFAULT CHARACTER SET utf8mb4
