@@ -53,6 +53,7 @@ class LoginError(Exception):
 class LoginContext:
     ip: str | None = None
     user_agent: str | None = None
+    internal: bool = False  # True = *.eepp.shop 등 내부 도메인, 2FA 면제
 
 
 def _aes_key() -> bytes:
@@ -151,7 +152,11 @@ def login(
         )
         raise LoginError(401, "invalid_credentials")
 
-    if user.totp_enabled:
+    # 내부 도메인: TOTP 전면 면제 (setup 도 요구 안 함)
+    setup_required = False
+    if ctx.internal:
+        pass  # bypass 2FA
+    elif user.totp_enabled:
         if not totp_code or not user.totp_secret_enc:
             raise LoginError(401, "totp_required")
         if not verify_totp(user.totp_secret_enc, totp_code):
@@ -162,9 +167,12 @@ def login(
         log_auth_event(
             "totp_ok", user_id=user.id, ip=ctx.ip, user_agent=ctx.user_agent
         )
+    else:
+        # 외부 + totp 미설정 → 반쪽 세션 (claim 부여, /settings/2fa 로 강제 이동)
+        setup_required = True
 
     user_repo.reset_failed_login(user.id)
-    pair = issue_pair(user.id, repo=refresh_repo)
+    pair = issue_pair(user.id, repo=refresh_repo, totp_setup_required=setup_required)
     log_auth_event(
         "login_ok", user_id=user.id, ip=ctx.ip, user_agent=ctx.user_agent
     )

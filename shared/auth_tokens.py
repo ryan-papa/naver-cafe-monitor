@@ -32,13 +32,20 @@ class TokenPayload:
     jti: str
     issued_at: datetime
     expires_at: datetime
+    totp_setup_required: bool = False
 
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _issue(user_id: int, token_type: str, ttl: timedelta, secret: str) -> tuple[str, TokenPayload]:
+def _issue(
+    user_id: int,
+    token_type: str,
+    ttl: timedelta,
+    secret: str,
+    extra_claims: dict | None = None,
+) -> tuple[str, TokenPayload]:
     now = _now()
     exp = now + ttl
     jti = secrets.token_urlsafe(16)
@@ -49,18 +56,24 @@ def _issue(user_id: int, token_type: str, ttl: timedelta, secret: str) -> tuple[
         "iat": int(now.timestamp()),
         "exp": int(exp.timestamp()),
     }
+    if extra_claims:
+        payload.update(extra_claims)
     token = jwt.encode(payload, secret, algorithm=ALGO)
     return token, TokenPayload(
         user_id=user_id, type=token_type, jti=jti, issued_at=now, expires_at=exp
     )
 
 
-def issue_access_token(user_id: int, secret: str) -> tuple[str, TokenPayload]:
-    return _issue(user_id, ACCESS_TYPE, ACCESS_TTL, secret)
+def issue_access_token(
+    user_id: int, secret: str, extra_claims: dict | None = None
+) -> tuple[str, TokenPayload]:
+    return _issue(user_id, ACCESS_TYPE, ACCESS_TTL, secret, extra_claims)
 
 
-def issue_refresh_token(user_id: int, secret: str) -> tuple[str, TokenPayload]:
-    return _issue(user_id, REFRESH_TYPE, REFRESH_TTL, secret)
+def issue_refresh_token(
+    user_id: int, secret: str, extra_claims: dict | None = None
+) -> tuple[str, TokenPayload]:
+    return _issue(user_id, REFRESH_TYPE, REFRESH_TTL, secret, extra_claims)
 
 
 def verify_token(token: str, secret: str, expected_type: str) -> TokenPayload:
@@ -85,6 +98,7 @@ def verify_token(token: str, secret: str, expected_type: str) -> TokenPayload:
         jti=decoded.get("jti", ""),
         issued_at=datetime.fromtimestamp(decoded["iat"], tz=timezone.utc),
         expires_at=datetime.fromtimestamp(decoded["exp"], tz=timezone.utc),
+        totp_setup_required=bool(decoded.get("totp_setup_required", False)),
     )
 
 
