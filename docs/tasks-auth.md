@@ -10,7 +10,7 @@
 | TA-01 | 시크릿 생성 + `.env.enc` 반영 (RSA-2048 keypair, AES-256 key, HMAC key, JWT secret) | F-03, F-11 | — | Done (코드/테스트), 수동 실행 필요 | `feat/TA-01-secrets` |
 | TA-02 | DB 마이그레이션: `users`, `refresh_tokens`, `auth_events`, `rate_limit_buckets` | F-01, F-07, F-14, F-15, F-06 | — | Done (DDL+구조검증), 수동 mysql 실행 필요 | `feat/TA-02-schema` |
 | TA-03 | 공통 암호화 유틸 (AES-GCM, HMAC-SHA256, argon2id, RSA-OAEP) | F-02, F-03, F-11 | TA-01 | Done | `feat/TA-03-crypto-utils` |
-| TA-04 | JWT 발급·검증 유틸 (access 1h / refresh 24h) + 쿠키 헬퍼 | F-05, F-07 | TA-01 | Todo | `feat/TA-04-jwt` |
+| TA-04 | JWT 발급·검증 유틸 (access 1h / refresh 24h) + 쿠키 헬퍼 | F-05, F-07 | TA-01 | Done | `feat/TA-04-jwt` |
 | TA-05 | Rate limit 미들웨어 (IP + 계정, DB 버킷) | F-06 | TA-02 | Todo | `feat/TA-05-ratelimit` |
 | TA-06 | CSRF double-submit 미들웨어 | F-05, 비기능 | TA-04 | Todo | `feat/TA-06-csrf` |
 | TA-07 | `auth_events` 기록 유틸 | F-15 | TA-02 | Todo | `feat/TA-07-events` |
