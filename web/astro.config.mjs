@@ -1,7 +1,9 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+import node from '@astrojs/node';
 
-// https://astro.build/config
 export default defineConfig({
-	base: '/naver-cafe-monitoring',
+	output: 'server',
+	adapter: node({ mode: 'standalone' }),
+	server: { port: 4321, host: '127.0.0.1' },
 });
