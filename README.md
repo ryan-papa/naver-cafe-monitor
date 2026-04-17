@@ -10,7 +10,7 @@
 |----------|------|
 | **Batch** | 30분 주기 크롤링 → 얼굴 필터링 → AI 요약 → 카카오톡 알림 |
 | **API** | 처리 이력 조회 REST API (FastAPI/Uvicorn) |
-| **Web** | 처리 이력 대시보드 — 통계, 필터, 페이지네이션 (Astro) |
+| **Web** | 처리 이력 대시보드 — 통계, 필터, 페이지네이션, 상세 모달(카카오 전송 내용 미리보기·재발송) (Astro) |
 
 ### 배치 파이프라인
 
@@ -230,7 +230,8 @@ naver-cafe-monitor/
 │   └── package.json
 ├── shared/                 # API·배치 공통 모듈
 │   ├── database.py         # MySQL SSL 연결
-│   └── post_repository.py  # DB 쿼리
+│   ├── post_repository.py  # DB 쿼리
+│   └── kakao_format.py     # 카카오톡 메시지 재구성 (API·batch 공용)
 ├── deploy/                 # 배포 설정 참고용
 │   ├── docker-compose.yaml
 │   ├── nginx-conf/
