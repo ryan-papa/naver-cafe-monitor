@@ -14,8 +14,8 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-_DEFAULT_TOKEN_PATH = _PROJECT_ROOT / "config" / "google_token.json"
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_DEFAULT_TOKEN_PATH = _REPO_ROOT / "config" / "google_token.json"
 
 _TOKEN_URI = "https://oauth2.googleapis.com/token"
 _UPLOAD_URL = "https://photoslibrary.googleapis.com/v1/uploads"

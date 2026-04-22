@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 
 _NAVER_LOGIN_URL = "https://nid.naver.com/nidlogin.login"
 _NAVER_BASE_URL = "https://www.naver.com"
-_DEFAULT_COOKIE_PATH = Path("data/cookies.json")
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_DEFAULT_COOKIE_PATH = _REPO_ROOT / "data" / "cookies.json"
 
 
 async def build_context(playwright: "Playwright", headless: bool = True) -> "BrowserContext":
