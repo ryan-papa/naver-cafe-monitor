@@ -1,14 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-REPO_DIR="/Users/hose.kim/Claude/claude-projects/repositories/naver-cafe-monitor"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "$REPO_DIR"
 
 export PATH="/opt/homebrew/bin:$PATH"
 
-# Decrypt .env.enc and export all vars, then exec uvicorn
-set -a
-eval "$(sops -d --input-type dotenv --output-type dotenv .env.enc)"
-set +a
-
-exec .venv/bin/uvicorn api.src.main:app --host 127.0.0.1 --port 8000
+# Run uvicorn inside a decrypted dotenv environment without shell eval.
+exec sops exec-env --input-type dotenv .env.enc \
+  '.venv/bin/uvicorn api.src.main:app --host 127.0.0.1 --port 8000'
