@@ -25,7 +25,7 @@ def parse_dotenv(text: str) -> dict[str, str]:
             continue
 
         key, value = line.split("=", 1)
-        if value.startswith("-----BEGIN "):
+        if value.startswith("-----BEGIN ") and "-----END " not in value:
             current_key = key.strip()
             current_value = [value]
             continue
