@@ -16,8 +16,8 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-_DEFAULT_TOKEN_PATH = _PROJECT_ROOT / "config" / "kakao_token.json"
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_DEFAULT_TOKEN_PATH = _REPO_ROOT / "config" / "kakao_token.json"
 _TOKEN_URL = "https://kauth.kakao.com/oauth/token"
 _KST = timezone(timedelta(hours=9))
 _ALERT_DAYS_BEFORE = 14

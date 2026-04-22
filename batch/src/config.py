@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 _BATCH_ROOT = Path(__file__).resolve().parent.parent
 _REPO_ROOT = _BATCH_ROOT.parent
-_CONFIG_DIR = _BATCH_ROOT / "config"
+_CONFIG_DIR = _REPO_ROOT / "config"
 _REQUIRED_ENV_VARS = ("NAVER_ID", "NAVER_PW", "KAKAO_CLIENT_ID", "KAKAO_CLIENT_SECRET")
 
 
