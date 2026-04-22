@@ -254,6 +254,33 @@ nohup .venv/bin/python scripts/deploy/run_api.py > /tmp/uvicorn.log 2>&1 &
 
 `run_api.py` 는 `.env.enc` 를 subprocess 로 복호화 → `os.environ` 주입 → `uvicorn` 을 `execvp` 로 실행.
 
+### 자동 배포 (GitHub Actions + self-hosted runner)
+
+`main` 브랜치에 머지되면 GitHub Actions가 Mac Mini의 self-hosted runner에서 배포 스크립트를 실행한다.
+
+표준 구조:
+
+- 워크플로: `.github/workflows/deploy.yml`
+- 서버 배포 스크립트: `scripts/deploy/mac_mini_deploy.sh`
+- API 실행 래퍼: `deploy/scripts/run-api.sh`
+
+필수 GitHub 설정:
+
+- Repository variable `DEPLOY_REPO_DIR`: 맥미니에서 이 저장소가 실제로 위치한 절대 경로
+- Self-hosted runner labels: `self-hosted`, `macOS`, `deploy`
+- Runner 설치 절차: `docs/deploy/github-runner.md`
+
+배포 스크립트가 하는 일:
+
+1. 서버 작업 트리가 깨끗한지 확인
+2. 현재 API 프로세스가 실행 중인지 확인
+3. `git pull --ff-only origin main`
+4. `cd web && npm ci && npm run build`
+5. API 재기동
+6. Astro SSR 서버 재기동
+
+이 구조는 다른 프로젝트에도 그대로 복제 가능하며, 각 저장소는 `scripts/deploy/mac_mini_deploy.sh` 만 프로젝트 실행 방식에 맞게 바꾸면 된다.
+
 ### Auth DB 스키마 적용 (최초 1회)
 
 ```bash

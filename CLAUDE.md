@@ -9,6 +9,7 @@
 | 항목 | 내용 |
 |------|------|
 | 서버 환경 | 로컬 Mac Mini (이 레포가 서버에서 직접 실행됨) |
+| 배포 트리거 | GitHub Actions self-hosted runner (`self-hosted`, `macOS`, `deploy`) |
 | API 서버 | uvicorn (`api.src.main:app`, `127.0.0.1:8000`) |
 | 배치 | cron 30분 주기 (코드 변경 시 다음 실행에 자동 반영) |
 | 프록시 | nginx (재시작 불필요) |
@@ -24,5 +25,5 @@
 | 컴포넌트 | 배포 절차 |
 |----------|-----------|
 | API | uvicorn 프로세스 재시작 (`kill` + 재실행) |
-| 프론트엔드 | `cd web && npm run build && cp -r dist/* /opt/homebrew/var/www/naver-cafe-monitoring/` |
+| 프론트엔드 | `cd web && npm ci && npm run build` 후 `node web/dist/server/entry.mjs` 재기동 |
 | 배치 | 없음 (다음 cron 실행 시 자동 반영) |

@@ -1,0 +1,33 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: naver-cafe-monitor-production
+  cancel-in-progress: false
+
+jobs:
+  deploy-production:
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, macOS, deploy]
+    environment: production
+    permissions:
+      contents: read
+    env:
+      DEPLOY_REPO_DIR: ${{ vars.DEPLOY_REPO_DIR }}
+      DEPLOY_BRANCH: main
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate deploy configuration
+        run: |
+          test -n "${DEPLOY_REPO_DIR}" || {
+            echo "Repository variable DEPLOY_REPO_DIR is required." >&2
+            exit 1
+          }
+
+      - name: Deploy on Mac Mini
+        run: bash scripts/deploy/mac_mini_deploy.sh
