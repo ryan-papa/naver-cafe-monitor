@@ -7,6 +7,4 @@ cd "$REPO_DIR"
 
 export PATH="/opt/homebrew/bin:$PATH"
 
-# Run uvicorn inside a decrypted dotenv environment without shell eval.
-exec sops exec-env --input-type dotenv .env.enc \
-  '.venv/bin/uvicorn api.src.main:app --host 127.0.0.1 --port 8000'
+exec .venv/bin/python scripts/deploy/run_api.py
