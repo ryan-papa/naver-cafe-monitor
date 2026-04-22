@@ -5,6 +5,7 @@ DEPLOY_REPO_DIR="${DEPLOY_REPO_DIR:-}"
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 API_PATTERN="${API_PATTERN:-uvicorn api.src.main}"
 WEB_PATTERN="${WEB_PATTERN:-web/dist/server/entry.mjs}"
+WEB_LAUNCHD_LABEL="${WEB_LAUNCHD_LABEL:-dev.eepp.naver-cafe-monitor-web}"
 API_PORT="${API_PORT:-8000}"
 WEB_PORT="${WEB_PORT:-4321}"
 API_LOG_PATH="${API_LOG_PATH:-/tmp/uvicorn.log}"
@@ -73,11 +74,18 @@ if ! pgrep -f "${API_PATTERN}" >/dev/null; then
   exit 1
 fi
 
-kill_listener "${WEB_PORT}" || pkill -f "${WEB_PATTERN}" || true
-nohup node "${DEPLOY_REPO_DIR}/web/dist/server/entry.mjs" > "${WEB_LOG_PATH}" 2>&1 &
+if launchctl print "gui/$(id -u)/${WEB_LAUNCHD_LABEL}" >/dev/null 2>&1; then
+  launchctl kickstart -k "gui/$(id -u)/${WEB_LAUNCHD_LABEL}"
+else
+  kill_listener "${WEB_PORT}" || pkill -f "${WEB_PATTERN}" || true
+  (
+    cd "${DEPLOY_REPO_DIR}/web"
+    nohup node dist/server/entry.mjs > "${WEB_LOG_PATH}" 2>&1 &
+  )
+fi
 sleep 2
 
-if ! pgrep -f "${WEB_PATTERN}" >/dev/null; then
+if ! lsof -iTCP:"${WEB_PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
   echo "Web failed to restart. See ${WEB_LOG_PATH}" >&2
   exit 1
 fi
