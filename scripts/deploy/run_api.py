@@ -59,10 +59,13 @@ def main() -> int:
 
     os.environ.update(parse_dotenv(plain))
     os.chdir(repo_dir)
+    python_bin = str(repo_dir / ".venv/bin/python")
     os.execvp(
-        str(repo_dir / ".venv/bin/uvicorn"),
+        python_bin,
         [
-            str(repo_dir / ".venv/bin/uvicorn"),
+            python_bin,
+            "-m",
+            "uvicorn",
             "api.src.main:app",
             "--host",
             "127.0.0.1",
