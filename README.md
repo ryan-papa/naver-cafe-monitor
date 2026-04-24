@@ -184,15 +184,22 @@ INITIAL_ADMIN_EMAIL=<email> INITIAL_ADMIN_PASSWORD=<pw> \
 ## 배치 실행 (cron)
 
 ```bash
-bash scripts/install_cron.sh
+bash batch/scripts/install_cron.sh           # 설치 (batch + kakao-refresh)
+bash batch/scripts/install_cron.sh --uninstall=refresh   # refresh 엔트리만 제거
+bash batch/scripts/install_cron.sh --uninstall=batch     # batch 엔트리만 제거
+bash batch/scripts/install_cron.sh --uninstall=all       # 전체 제거 (기본값)
 ```
 
-수동 등록 시:
+등록되는 두 엔트리:
 
-```bash
-crontab -e
-# */30 * * * * cd /path/to/naver-cafe-monitor && bash scripts/start.sh >> logs/cron.log 2>&1
-```
+| 엔트리 | 주기 | 역할 |
+|--------|------|------|
+| `batch` | `*/30 * * * *` | 카페 크롤링 + 카톡 발송 |
+| `kakao-refresh` | `15 */3 * * *` | 카카오 access/refresh token 선제 갱신 (3시간 주기) |
+
+로그 경로:
+- `batch/logs/batch.log`
+- `batch/logs/kakao_refresh.log` (토큰 원문은 자동 마스킹)
 
 ---
 

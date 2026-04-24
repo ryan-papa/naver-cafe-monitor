@@ -100,3 +100,26 @@ T-31 ──┬── T-32 ──┬── T-33
        │          └── T-34
        └── T-35
 ```
+
+## 카카오 토큰 주기 선제 갱신 (3시간 cron)
+
+**PRD:** `docs/prd/20260424_111935_kakao-token-scheduled-refresh_s3c9n7r4.md`
+**통합 브랜치:** `feat/kakao-token-scheduled-refresh`
+
+| ID | 설명 | PRD | 우선순위 | 상태 | 브랜치 |
+|----|------|-----|----------|------|--------|
+| T-36 | `KakaoAuth` 파일 락 + 재로드·머지 패턴 (fcntl.flock, 볼러틸 필드 화이트리스트) + 프로세스간 테스트 | F-29 | High | Done | `feat/kakao-token-scheduled-refresh` |
+| T-37 | `batch/src/kakao_refresh.py` 엔트리 모듈 + 토큰 마스킹 로거 + 전용 로그 파일 (`batch/logs/kakao_refresh.log`) | F-23, F-24, F-27 | High | Done | `feat/kakao-token-scheduled-refresh` |
+| T-38 | `install_cron.sh` 2-entry 확장: refresh 엔트리 추가, 마커 분리, `--uninstall=<refresh\|batch\|all>` 파싱, 재실행 멱등성 | F-25, F-26 | High | Done | `feat/kakao-token-scheduled-refresh` |
+| T-39 | 테스트: `test_kakao_refresh.py` (성공/실패/마스킹), `test_kakao_auth_lock.py` (multiprocessing), `test_install_cron.sh` (crontab 스텁) | F-23, F-29, F-25, F-26 | High | Done | `feat/kakao-token-scheduled-refresh` |
+| T-40 | `.gitignore` 에 `kakao_token.json.lock` 추가 + README 설치·제거·로그 안내 갱신 | — | Mid | Done | `feat/kakao-token-scheduled-refresh` |
+
+### 의존성 그래프
+
+```
+T-36 (KakaoAuth 락) ──┐
+                      ├── T-37 (refresh entry) ──┐
+                      │                           ├── T-39 (테스트)
+                      └── T-38 (cron installer) ─┘
+                                                  └── T-40 (docs)
+```
