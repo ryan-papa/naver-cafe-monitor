@@ -44,7 +44,145 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 				line-height: 1.6; font-size: 14px;
 			}
 
-			.container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+			.container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+			.admin-shell {
+				min-height: 100dvh;
+				display: flex;
+				background: #fafaf7;
+				color: #0f0f10;
+			}
+			.sidebar {
+				width: 220px;
+				flex-shrink: 0;
+				background: #f3f2ee;
+				border-right: 1px solid #e5e3dc;
+				display: flex;
+				flex-direction: column;
+				position: sticky;
+				top: 0;
+				height: 100dvh;
+			}
+			.sidebar-head {
+				height: 44px;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				padding: 0 12px;
+				border-bottom: 1px solid #e5e3dc;
+			}
+			.logo-mark {
+				width: 22px;
+				height: 22px;
+				border-radius: 4px;
+				background: #0f0f10;
+				color: #fafaf7;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+			}
+			.logo-text { min-width: 0; }
+			.logo-title { font-size: 13px; font-weight: 700; line-height: 1.15; }
+			.logo-sub { font-size: 11px; color: #6e6b63; line-height: 1.15; }
+			.side-nav {
+				flex: 1;
+				overflow: auto;
+				padding: 8px 8px 16px;
+			}
+			.nav-group { margin-bottom: 14px; }
+			.nav-label {
+				padding: 4px 8px;
+				font-size: 11px;
+				color: #6e6b63;
+				text-transform: uppercase;
+				letter-spacing: 0.08em;
+				font-weight: 700;
+			}
+			.nav-item {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				padding: 6px 8px;
+				border-radius: 4px;
+				color: #5b5a55;
+				font-size: 13px;
+				font-weight: 500;
+				text-decoration: none;
+				margin-bottom: 1px;
+			}
+			.nav-item.is-active { background: #f1efea; color: #0f0f10; }
+			.nav-item.is-muted { opacity: 0.5; cursor: not-allowed; }
+			.main-pane {
+				flex: 1;
+				min-width: 0;
+				display: flex;
+				flex-direction: column;
+				height: 100dvh;
+			}
+			.topbar {
+				height: 44px;
+				flex-shrink: 0;
+				background: #fff;
+				border-bottom: 1px solid #e5e3dc;
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+				padding: 0 16px;
+			}
+			.topbar-title {
+				font-size: 13px;
+				font-weight: 700;
+				color: #0f0f10;
+				white-space: nowrap;
+			}
+			.topbar-actions {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				min-width: 0;
+			}
+			.icon-link {
+				width: 28px;
+				height: 28px;
+				border-radius: 4px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				color: #5b5a55;
+				text-decoration: none;
+			}
+			.icon-link:hover { background: #f1efea; color: #0f0f10; }
+			.workspace {
+				flex: 1;
+				overflow: auto;
+				padding: 20px 24px 32px;
+			}
+			.content-head {
+				display: flex;
+				align-items: flex-end;
+				justify-content: space-between;
+				gap: 16px;
+				margin-bottom: 16px;
+			}
+			.content-head h1 {
+				font-size: 22px;
+				line-height: 1.2;
+				font-weight: 800;
+				letter-spacing: 0;
+				margin-bottom: 4px;
+			}
+			.content-head p { font-size: 13px; color: #6e6b63; }
+			.update-pill {
+				font-size: 12px;
+				color: #5b5a55;
+				background: #f3f2ee;
+				border: 1px solid #e5e3dc;
+				border-radius: 999px;
+				padding: 4px 10px;
+				white-space: nowrap;
+			}
 
 			/* ── 네비게이션 ── */
 			.navbar {
@@ -79,8 +217,8 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			/* ── 통계 ── */
 			.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
 			.stat-card {
-				background: var(--bg-surface); border-radius: var(--radius); padding: 18px 24px;
-				box-shadow: var(--shadow-sm); border: 1px solid var(--border-color);
+				background: #fff; border-radius: 8px; padding: 14px 16px;
+				box-shadow: 0 1px 2px rgba(15,15,16,0.04); border: 1px solid #e5e3dc;
 				transition: box-shadow 0.2s, transform 0.2s;
 				display: flex; align-items: center; gap: 14px;
 			}
@@ -106,6 +244,10 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			.filter-bar {
 				display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;
 				align-items: center;
+				background: #fff;
+				border: 1px solid #e5e3dc;
+				border-radius: 8px;
+				padding: 10px;
 			}
 			.filter-bar .spacer { flex: 1; }
 			.filter-select {
@@ -121,19 +263,19 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 
 			/* ── 테이블 카드 ── */
 			.data-card {
-				background: var(--bg-surface); border-radius: var(--radius);
-				border: 1px solid var(--border-color); overflow: hidden;
+				background: #fff; border-radius: 8px;
+				border: 1px solid #e5e3dc; overflow: hidden;
 				box-shadow: var(--shadow-sm);
 			}
 			.data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 			.data-table thead th {
-				font-size: 0.7rem; font-weight: 700; color: var(--text-tertiary);
+				font-size: 11px; font-weight: 700; color: #6e6b63;
 				letter-spacing: 0.06em; text-transform: uppercase;
-				padding: 14px 20px; background: #fafbfc; border-bottom: 1px solid var(--border-color);
+				padding: 10px 14px; background: #fafaf7; border-bottom: 1px solid #e5e3dc;
 				text-align: left;
 			}
 			.data-table tbody td {
-				padding: 16px 20px; vertical-align: middle;
+				padding: 10px 14px; vertical-align: middle;
 				border-bottom: 1px solid var(--border-light);
 			}
 			.data-table tbody tr:last-child td { border-bottom: 0; }
@@ -287,6 +429,27 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 
 			/* ── 반응형 ── */
 			@media (max-width: 768px) {
+				.admin-shell { display: block; }
+				.sidebar {
+					position: static;
+					width: 100%;
+					height: auto;
+					border-right: 0;
+					border-bottom: 1px solid #e5e3dc;
+				}
+				.side-nav {
+					display: flex;
+					gap: 12px;
+					overflow-x: auto;
+					padding: 8px 12px;
+				}
+				.nav-group { display: flex; align-items: center; gap: 4px; margin-bottom: 0; }
+				.nav-label { display: none; }
+				.nav-item { white-space: nowrap; }
+				.main-pane { height: auto; min-height: calc(100dvh - 89px); }
+				.topbar { position: sticky; top: 0; z-index: 80; }
+				.workspace { padding: 16px; }
+				.content-head { align-items: flex-start; flex-direction: column; gap: 8px; }
 				.stats { grid-template-columns: repeat(3, 1fr); gap: 10px; }
 				.stat-card { padding: 14px 16px; }
 				.stat-card .num { font-size: 1.3rem; }
@@ -302,78 +465,115 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 	<body>
 		<div class="toast-container" id="toast-container"></div>
 
-		<nav class="navbar">
-			<div class="navbar-inner">
-				<a class="brand" href="/">
-					<span class="brand-icon"><i class="bi bi-clipboard2-data"></i></span>
-					카페 모니터
-				</a>
-				<span class="ts" id="last-updated"></span>
-			</div>
-		</nav>
-
-		<main class="container" style="padding-top:28px; padding-bottom:40px;">
-			<!-- 통계 -->
-			<div class="stats">
-				<div class="stat-card stat-total">
-					<span class="stat-icon stat-icon-total"><i class="bi bi-collection"></i></span>
-					<span class="lbl">전체</span><span class="num" id="stat-total">-</span>
-				</div>
-				<div class="stat-card stat-ok">
-					<span class="stat-icon stat-icon-ok"><i class="bi bi-check-circle"></i></span>
-					<span class="lbl">성공</span><span class="num" id="stat-success">-</span>
-				</div>
-				<div class="stat-card stat-fail">
-					<span class="stat-icon stat-icon-fail"><i class="bi bi-exclamation-circle"></i></span>
-					<span class="lbl">실패</span><span class="num" id="stat-fail">-</span>
-				</div>
-			</div>
-
-			<!-- 필터 -->
-			<div class="filter-bar">
-				<select class="filter-select" id="filter-board" aria-label="게시판">
-					<option value="">전체 게시판</option>
-					<option value="menus/6">공지사항</option>
-					<option value="menus/13">사진</option>
-				</select>
-				<select class="filter-select" id="filter-status" aria-label="상태">
-					<option value="">전체 상태</option>
-					<option value="SUCCESS">성공</option>
-					<option value="FAIL">실패</option>
-				</select>
-				<select class="filter-select" id="sort-by" aria-label="정렬">
-					<option value="reg_ts">처리일시</option>
-					<option value="post_date">게시일</option>
-					<option value="post_id">게시글번호</option>
-				</select>
-				<select class="filter-select" id="sort-order" aria-label="방향">
-					<option value="DESC">최신순</option>
-					<option value="ASC">오래된순</option>
-				</select>
-				<span class="spacer"></span>
-				<select class="filter-select" id="page-size" aria-label="페이지당 표시 수">
-					<option value="10">10개씩</option>
-					<option value="30" selected>30개씩</option>
-					<option value="50">50개씩</option>
-				</select>
-			</div>
-
-			<!-- 테이블 -->
-			<section class="data-card" aria-label="처리 이력">
-				<div id="table-container">
-					<div class="state-box">
-						<div class="loader"></div>
-						<p>불러오는 중</p>
+		<div class="admin-shell">
+			<aside class="sidebar" aria-label="관리 메뉴">
+				<div class="sidebar-head">
+					<span class="logo-mark" aria-hidden="true">CM</span>
+					<div class="logo-text">
+						<div class="logo-title">Cafe Monitor</div>
+						<div class="logo-sub">Admin</div>
 					</div>
 				</div>
-			</section>
+				<nav class="side-nav">
+					<div class="nav-group">
+						<div class="nav-label">개요</div>
+						<a class="nav-item is-active" href="/" aria-current="page"><i class="bi bi-house"></i> 대시보드</a>
+					</div>
+					<div class="nav-group">
+						<div class="nav-label">모니터링</div>
+						<a class="nav-item" href="/"><i class="bi bi-table"></i> 처리 이력</a>
+						<span class="nav-item is-muted"><i class="bi bi-bell"></i> 알림 큐</span>
+					</div>
+					<div class="nav-group">
+						<div class="nav-label">시스템</div>
+						<a class="nav-item" href="/settings/2fa"><i class="bi bi-shield-lock"></i> 2단계 인증</a>
+						<span class="nav-item is-muted"><i class="bi bi-clock-history"></i> 배치 이력</span>
+					</div>
+				</nav>
+			</aside>
 
-			<!-- 페이징 -->
-			<div class="paging-wrap">
-				<span class="paging-meta" id="paging-meta"></span>
-				<nav class="paging" id="pagination" aria-label="페이지 이동"></nav>
+			<div class="main-pane">
+				<header class="topbar">
+					<div class="topbar-title">네이버 카페 게시글 모니터링</div>
+					<div class="topbar-actions">
+						<span class="update-pill" id="last-updated"></span>
+						<a class="icon-link" href="/settings/2fa" aria-label="2단계 인증 설정" title="2단계 인증 설정">
+							<i class="bi bi-gear"></i>
+						</a>
+					</div>
+				</header>
+
+				<main class="workspace">
+					<div class="content-head">
+						<div>
+							<h1>처리 이력</h1>
+							<p>수집된 게시글과 카카오톡 전송 상태를 확인합니다.</p>
+						</div>
+					</div>
+
+					<!-- 통계 -->
+					<div class="stats">
+						<div class="stat-card stat-total">
+							<span class="stat-icon stat-icon-total"><i class="bi bi-collection"></i></span>
+							<span class="lbl">전체</span><span class="num" id="stat-total">-</span>
+						</div>
+						<div class="stat-card stat-ok">
+							<span class="stat-icon stat-icon-ok"><i class="bi bi-check-circle"></i></span>
+							<span class="lbl">성공</span><span class="num" id="stat-success">-</span>
+						</div>
+						<div class="stat-card stat-fail">
+							<span class="stat-icon stat-icon-fail"><i class="bi bi-exclamation-circle"></i></span>
+							<span class="lbl">실패</span><span class="num" id="stat-fail">-</span>
+						</div>
+					</div>
+
+					<!-- 필터 -->
+					<div class="filter-bar">
+						<select class="filter-select" id="filter-board" aria-label="게시판">
+							<option value="">전체 게시판</option>
+							<option value="menus/6">공지사항</option>
+							<option value="menus/13">사진</option>
+						</select>
+						<select class="filter-select" id="filter-status" aria-label="상태">
+							<option value="">전체 상태</option>
+							<option value="SUCCESS">성공</option>
+							<option value="FAIL">실패</option>
+						</select>
+						<select class="filter-select" id="sort-by" aria-label="정렬">
+							<option value="reg_ts">처리일시</option>
+							<option value="post_date">게시일</option>
+							<option value="post_id">게시글번호</option>
+						</select>
+						<select class="filter-select" id="sort-order" aria-label="방향">
+							<option value="DESC">최신순</option>
+							<option value="ASC">오래된순</option>
+						</select>
+						<span class="spacer"></span>
+						<select class="filter-select" id="page-size" aria-label="페이지당 표시 수">
+							<option value="10">10개씩</option>
+							<option value="30" selected>30개씩</option>
+							<option value="50">50개씩</option>
+						</select>
+					</div>
+
+					<!-- 테이블 -->
+					<section class="data-card" aria-label="처리 이력">
+						<div id="table-container">
+							<div class="state-box">
+								<div class="loader"></div>
+								<p>불러오는 중</p>
+							</div>
+						</div>
+					</section>
+
+					<!-- 페이징 -->
+					<div class="paging-wrap">
+						<span class="paging-meta" id="paging-meta"></span>
+						<nav class="paging" id="pagination" aria-label="페이지 이동"></nav>
+					</div>
+				</main>
 			</div>
-		</main>
+		</div>
 
 		<!-- 상세 모달 -->
 		<div class="modal-backdrop" id="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-hidden="true">
