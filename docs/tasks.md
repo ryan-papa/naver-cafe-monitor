@@ -123,3 +123,51 @@ T-36 (KakaoAuth 락) ──┐
                       └── T-38 (cron installer) ─┘
                                                   └── T-40 (docs)
 ```
+
+## museum-finder UI 정렬 (어드민 전면 리디자인)
+
+**PRD:** `docs/prd/20260424_170133_museum-finder-ui-alignment_9952fbc8.md`
+**통합 브랜치:** `feat/museum-finder-ui-alignment`
+**PR 전략:** 단일 PR (전 태스크 통합 후 1회 머지)
+
+| ID | 설명 | PRD | 우선순위 | 상태 | 브랜치 |
+|----|------|-----|----------|------|--------|
+| T-41 | 의존성 정리 — `bootstrap`·`bootstrap-icons` 제거, `@playwright/test`·`@axe-core/playwright`·`focus-trap` 추가 | F-22 | High | Todo | `feat/museum-finder-ui-alignment` |
+| T-42 | 디자인 토큰 이식 — `web/src/styles/tokens.css`·`globals.css` | F-01·F-02 | High | Todo | `feat/museum-finder-ui-alignment` |
+| T-43 | 공용 `<BaseHead>` 파셜 — NanumSquare/JetBrains Mono CDN + CSP + `font-display: swap` | F-03 | High | Todo | `feat/museum-finder-ui-alignment` |
+| T-44 | Astro 프리미티브 8종 — Button/Input/Select/Pill/Icon/DataTable/PageHeader/HelpTip + 각 islands | F-04a~h | High | Todo | `feat/museum-finder-ui-alignment` |
+| T-45 | 레이아웃 셸 — `AppShell`/`Sidebar`(NC 로고)/`Topbar` | F-05·F-06·F-07 | High | Todo | `feat/museum-finder-ui-alignment` |
+| T-46 | 공용 `Modal.astro` + `islands/modal.ts` (focus-trap, ESC, backdrop) | F-13 | High | Todo | `feat/museum-finder-ui-alignment` |
+| T-47 | 대시보드 `/admin/index.astro` | F-08 | High | Todo | `feat/museum-finder-ui-alignment` |
+| T-48 | 처리 이력 목록 `/admin/posts/index.astro` — 필터·검색·페이지네이션·정렬 | F-09 | High | Todo | `feat/museum-finder-ui-alignment` |
+| T-49 | 게시물 상세 `/admin/posts/[id].astro` — 본문·카톡·재발송(쿨다운 island) | F-10 | High | Todo | `feat/museum-finder-ui-alignment` |
+| T-50 | 2FA 설정 이동 `/admin/settings/2fa.astro` | F-11 | High | Todo | `feat/museum-finder-ui-alignment` |
+| T-51 | 로그인·회원가입 리디자인 | F-12 | High | Todo | `feat/museum-finder-ui-alignment` |
+| T-52 | ErrorLayout 리스타일 + 다크 토큰 이식 | F-17·F-18 | Mid | Todo | `feat/museum-finder-ui-alignment` |
+| T-53 | 미들웨어 리다이렉트 (`/`→`/admin`, `/settings/2fa`→`/admin/settings/2fa`, 루프 방지) | F-14 | High | Todo | `feat/museum-finder-ui-alignment` |
+| T-54 | Playwright 인프라 — `playwright.config.ts` + `web/tests/e2e/` | F-19 | High | Todo | `feat/museum-finder-ui-alignment` |
+| T-55 | axe 통합 + 공용 fixture | F-20 | High | Todo | `feat/museum-finder-ui-alignment` |
+| T-56 | CI `web` 잡 추가 — astro check/build + playwright install 캐시 + playwright test | F-21 | High | Todo | `feat/museum-finder-ui-alignment` |
+| T-57 | E2E 시나리오 — 로그인/목록/필터/페이지네이션/상세/재발송/2FA/리다이렉트 | F-15·F-24 | High | Todo | `feat/museum-finder-ui-alignment` |
+| T-58 | 프리미티브 단위 AC E2E — Select 키보드, HelpTip ESC, Modal 트랩 | F-23 | High | Todo | `feat/museum-finder-ui-alignment` |
+| T-59 | 육안 검증 체크리스트 `docs/qa/visual-check.md` | F-25 | Mid | Todo | `feat/museum-finder-ui-alignment` |
+| T-60 | 기존 인라인 스타일 제거 — `pages/index.astro` 등 `<style>` 블록 삭제 + 컴포넌트 호출 대체 | — | High | Todo | `feat/museum-finder-ui-alignment` |
+
+### 의존성 그래프
+
+```
+T-41 (deps) ─┬── T-42 (tokens) ──┬── T-43 (fonts/head) ──┐
+             │                   │                       │
+             │                   └── T-44 (primitives) ──┼── T-45 (shell) ──┐
+             │                                           │                   │
+             │                                           └── T-46 (Modal) ──┤
+             │                                                               │
+             └── T-54 (playwright) ── T-55 (axe) ── T-56 (CI) ──────────────┤
+                                                                             ▼
+                                                    T-47~T-52 (pages) ──┬── T-57~T-58 (E2E)
+                                                    T-53 (middleware) ──┤
+                                                                         │
+                                                            T-60 (cleanup)
+                                                                         │
+                                                            T-59 (육안 체크)
+```

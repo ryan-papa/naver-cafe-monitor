@@ -1,0 +1,128 @@
+/* naver-cafe-monitor Admin — design tokens
+ * Ported from museum-finder/frontend/src/styles/tokens.css
+ * NanumSquare CDN은 <BaseHead> 파셜에서 로드 */
+
+:root {
+  /* Type */
+  --font-ui: 'NanumSquare', 'NanumSquareNeo', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Menlo', monospace;
+
+  /* Neutrals (light) */
+  --bg: #FAFAF7;
+  --bg-soft: #F3F2EE;
+  --bg-elev: #FFFFFF;
+  --bg-table-row: #FFFFFF;
+  --bg-table-alt: #FAFAF7;
+  --bg-hover: #F1EFEA;
+  --border: #E5E3DC;
+  --border-strong: #CDC9BF;
+  --divider: #EFEDE7;
+
+  --fg: #0F0F10;
+  --fg-muted: #5B5A55;
+  --fg-faint: #6E6B63;
+  --fg-inv: #FAFAF7;
+
+  /* Accent */
+  --accent: oklch(0.52 0.11 255);
+  --accent-hover: oklch(0.46 0.12 255);
+  --accent-soft: oklch(0.94 0.03 255);
+  --accent-border: oklch(0.82 0.06 255);
+  --accent-fg: oklch(0.38 0.12 255);
+
+  /* Semantic */
+  --success: oklch(0.44 0.13 150);
+  --success-soft: oklch(0.94 0.04 150);
+  --success-border: oklch(0.82 0.07 150);
+  --warning: oklch(0.50 0.14 75);
+  --warning-soft: oklch(0.96 0.05 85);
+  --warning-border: oklch(0.85 0.09 80);
+  --danger: oklch(0.48 0.18 25);
+  --danger-soft: oklch(0.95 0.04 25);
+  --danger-border: oklch(0.85 0.09 25);
+  --info: oklch(0.46 0.12 230);
+  --info-soft: oklch(0.94 0.03 230);
+
+  /* Sizes */
+  --fs-10: 10px; --fs-11: 11px; --fs-12: 12px; --fs-13: 13px;
+  --fs-14: 14px; --fs-16: 16px; --fs-18: 18px; --fs-22: 22px; --fs-28: 28px;
+
+  /* Spacing */
+  --s-1: 2px; --s-2: 4px; --s-3: 6px; --s-4: 8px; --s-5: 10px;
+  --s-6: 12px; --s-7: 14px; --s-8: 16px; --s-10: 20px; --s-12: 24px; --s-16: 32px;
+
+  /* Radii */
+  --r-2: 2px; --r-3: 3px; --r-4: 4px; --r-6: 6px; --r-8: 8px;
+
+  /* Dimensions */
+  --row-h: 32px;
+  --topbar-h: 44px;
+  --sidebar-w: 220px;
+  --sidebar-w-collapsed: 52px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(15,15,16,0.04), 0 0 0 1px rgba(15,15,16,0.04);
+  --shadow-md: 0 4px 12px rgba(15,15,16,0.06), 0 0 0 1px rgba(15,15,16,0.05);
+  --shadow-lg: 0 12px 32px rgba(15,15,16,0.10), 0 0 0 1px rgba(15,15,16,0.05);
+}
+
+[data-theme="dark"] {
+  --bg: #0F0F10;
+  --bg-soft: #16161A;
+  --bg-elev: #1B1B1F;
+  --bg-table-row: #17171A;
+  --bg-table-alt: #141418;
+  --bg-hover: #22222A;
+  --border: #2A2A32;
+  --border-strong: #3A3A44;
+  --divider: #23232A;
+
+  --fg: #EDEDE8;
+  --fg-muted: #A1A09A;
+  --fg-faint: #6D6C66;
+  --fg-inv: #0F0F10;
+
+  --accent: oklch(0.72 0.11 255);
+  --accent-hover: oklch(0.80 0.10 255);
+  --accent-soft: oklch(0.25 0.06 255);
+  --accent-border: oklch(0.38 0.09 255);
+  --accent-fg: oklch(0.82 0.09 255);
+
+  --success: oklch(0.72 0.13 150);
+  --success-soft: oklch(0.25 0.06 150);
+  --success-border: oklch(0.38 0.09 150);
+  --warning: oklch(0.78 0.14 75);
+  --warning-soft: oklch(0.28 0.07 75);
+  --warning-border: oklch(0.42 0.10 75);
+  --danger: oklch(0.70 0.18 25);
+  --danger-soft: oklch(0.28 0.08 25);
+  --danger-border: oklch(0.42 0.12 25);
+  --info: oklch(0.72 0.10 230);
+  --info-soft: oklch(0.26 0.05 230);
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+}
+
+/* Admin scope reset */
+.mf-admin, .mf-admin * {
+  box-sizing: border-box;
+}
+.mf-admin {
+  font-family: var(--font-ui);
+  font-size: var(--fs-13);
+  color: var(--fg);
+  background: var(--bg);
+  font-feature-settings: 'tnum' 1, 'cv11' 1;
+  line-height: 1.45;
+  letter-spacing: -0.003em;
+  -webkit-font-smoothing: antialiased;
+}
+.mf-admin code, .mf-admin .mono { font-family: var(--font-mono); font-size: 0.92em; }
+.mf-admin button { font-family: inherit; font-size: inherit; color: inherit; }
+.mf-admin input, .mf-admin textarea, .mf-admin select { font-family: inherit; font-size: inherit; color: inherit; }
+.mf-admin ::selection { background: var(--accent-soft); }
+.mf-admin ::-webkit-scrollbar { width: 10px; height: 10px; }
+.mf-admin ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 10px; border: 2px solid var(--bg); }
+.mf-admin ::-webkit-scrollbar-track { background: transparent; }

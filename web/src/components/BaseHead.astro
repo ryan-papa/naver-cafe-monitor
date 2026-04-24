@@ -1,0 +1,27 @@
+---
+export interface Props {
+  title?: string;
+  description?: string;
+}
+const { title = 'Naver Cafe Monitor', description = '내부 어드민' } = Astro.props;
+---
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>{title}</title>
+<meta name="description" content={description} />
+<meta name="robots" content="noindex,nofollow" />
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://cdn.jsdelivr.net/gh/moonspam/NanumSquare@2.0/nanumsquare.css"
+  crossorigin="anonymous"
+/>
+<link
+  rel="stylesheet"
+  href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.1.2/index.css"
+  crossorigin="anonymous"
+/>
+<style is:global>
+  @font-face { font-display: swap; font-family: 'NanumSquare'; }
+  @font-face { font-display: swap; font-family: 'JetBrains Mono'; }
+</style>
