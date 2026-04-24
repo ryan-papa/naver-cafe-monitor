@@ -168,8 +168,8 @@ const SORT_OPTIONS = [
           </tr>
         </thead>
         <tbody>
-          {filteredItems.map((r) => (
-            <tr>
+          {filteredItems.map((r, i) => (
+            <tr class={i % 2 ? "row-alt" : "row-base"}>
               <td>
                 <a href={`/admin/posts/${r.id}`} class="row-link" tabindex="-1">
                   <Pill tone={r.board_id === "menus/6" ? "warning" : "info"} size="sm">
@@ -308,7 +308,16 @@ const SORT_OPTIONS = [
     padding: 0;
     color: var(--fg);
     vertical-align: middle;
-    border-bottom: 1px solid var(--divider);
+  }
+  .mf-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background-color 90ms ease;
+  }
+  .mf-table tbody tr.row-base {
+    background: var(--bg-table-row);
+  }
+  .mf-table tbody tr.row-alt {
+    background: var(--bg-table-alt);
   }
   .mf-table tbody tr:hover {
     background: var(--bg-hover);
