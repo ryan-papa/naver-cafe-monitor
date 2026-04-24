@@ -161,7 +161,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			}
 			.content-head {
 				display: flex;
-				align-items: flex-end;
+				align-items: flex-start;
 				justify-content: space-between;
 				gap: 16px;
 				margin-bottom: 16px;
@@ -174,6 +174,27 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 				margin-bottom: 4px;
 			}
 			.content-head p { font-size: 13px; color: #6e6b63; font-weight: 400; }
+			.page-tools {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				flex-wrap: wrap;
+				justify-content: flex-end;
+				margin-top: 2px;
+			}
+			.page-tools .paging-meta { font-size: 12px; color: var(--fg-muted); }
+			.page-size-select {
+				font-size: 12px;
+				height: 26px;
+				padding: 0 24px 0 10px;
+			}
+			.page-indicator {
+				min-width: 56px;
+				text-align: center;
+				font-size: 12px;
+				font-variant-numeric: tabular-nums;
+				color: var(--fg);
+			}
 			.update-pill {
 				font-size: 12px;
 				color: #5b5a55;
@@ -244,10 +265,10 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			.filter-bar {
 				display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;
 				align-items: center;
-				background: #fff;
-				border: 1px solid #e5e3dc;
-				border-radius: 8px;
-				padding: 10px;
+				background: var(--bg-soft);
+				border: 1px solid var(--border);
+				border-radius: 6px;
+				padding: 10px 12px;
 			}
 			.filter-bar .spacer { flex: 1; }
 			.filter-select {
@@ -255,8 +276,8 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 				height: 30px;
 				border: 1px solid var(--border);
 				border-radius: 4px;
-				padding: 0 28px 0 10px; color: var(--text-primary);
-				background: var(--bg-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236e6b63' d='M2.5 4.5L6 8l3.5-3.5'/%3E%3C/svg%3E") no-repeat right 8px center;
+				padding: 0 24px 0 10px; color: var(--text-primary);
+				background: var(--bg-elev) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236e6b63' d='M2.5 4.5L6 8l3.5-3.5'/%3E%3C/svg%3E") no-repeat right 6px center;
 				appearance: none; cursor: pointer;
 				transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
 			}
@@ -265,31 +286,32 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 
 			/* ── 테이블 카드 ── */
 			.data-card {
-				background: #fff; border-radius: 8px;
-				border: 1px solid #e5e3dc; overflow: hidden;
-				box-shadow: var(--shadow-sm);
+				background: #fff; border-radius: 6px;
+				border: 1px solid var(--border); overflow: hidden;
+				box-shadow: none;
 			}
-			.data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+			.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 			.data-table thead th {
-				font-size: 11px; font-weight: 600; color: #6e6b63;
-				letter-spacing: 0.06em; text-transform: uppercase;
-				padding: 10px 14px; background: #fafaf7; border-bottom: 1px solid #e5e3dc;
+				font-size: 12px; font-weight: 500; color: var(--fg-muted);
+				letter-spacing: 0; text-transform: none;
+				padding: 8px 10px; background: var(--bg);
+				border-bottom: 1px solid var(--divider);
 				text-align: left;
 			}
 			.data-table tbody td {
-				padding: 10px 14px; vertical-align: middle;
-				border-bottom: 1px solid var(--border-light);
+				padding: 7px 10px; vertical-align: middle;
+				border-bottom: 1px solid var(--divider);
 			}
 			.data-table tbody tr:last-child td { border-bottom: 0; }
-			.data-table tbody tr { transition: background 0.12s; cursor: pointer; }
-			.data-table tbody tr:hover { background: #f8fafb; }
-			.data-table tbody tr:focus { outline: 2px solid var(--color-primary); outline-offset: -2px; background: #f8fafb; }
+			.data-table tbody tr { transition: background-color 90ms ease; cursor: pointer; }
+			.data-table tbody tr:hover td { background: var(--bg-hover); }
+			.data-table tbody tr:focus { outline: 2px solid var(--accent); outline-offset: -2px; background: transparent; }
 
 			/* ── 배지 ── */
 			.badge {
 				display: inline-flex; align-items: center; gap: 4px;
-				padding: 4px 10px; border-radius: 20px;
-				font-size: 0.72rem; font-weight: 400; letter-spacing: 0.01em;
+				padding: 2px 7px; border-radius: 4px;
+				font-size: 12px; font-weight: 500; letter-spacing: 0;
 			}
 			.badge-notice { background: var(--color-warning-light); color: var(--color-warning); }
 			.badge-photo { background: var(--color-info-light); color: var(--color-info); }
@@ -336,14 +358,13 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 
 			/* ── 페이징 ── */
 			.paging-wrap {
-				display: flex; justify-content: space-between; align-items: center;
-				margin-top: 20px; gap: 16px; flex-wrap: wrap;
+				display: flex; justify-content: flex-end; align-items: center;
+				margin-top: 0; gap: 8px; flex-wrap: wrap;
 			}
 			.paging { display: flex; justify-content: center; align-items: center; gap: 4px; flex-wrap: wrap; }
-			.paging-meta { font-size: 0.8rem; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 			.page-btn {
-				font-size: 13px; font-weight: 500; font-family: inherit;
-				min-width: 30px; height: 30px; padding: 0 8px; border-radius: 4px;
+				font-size: 11px; font-weight: 500; font-family: inherit;
+				min-width: 24px; height: 24px; padding: 0 8px; border-radius: 4px;
 				border: 1px solid var(--border); background: var(--bg-elev); color: var(--fg);
 				cursor: pointer; transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 				display: inline-flex; align-items: center; justify-content: center; gap: 4px;
@@ -460,7 +481,9 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 				.data-table thead th, .data-table tbody td { padding: 12px 14px; }
 				.container { padding: 0 16px; }
 				.modal { max-height: 92vh; }
-				.paging-wrap { justify-content: center; }
+				.content-head { align-items: flex-start; flex-direction: column; gap: 10px; }
+				.page-tools { justify-content: flex-start; }
+				.paging-wrap { justify-content: flex-start; }
 			}
 		</style>
 	</head>
@@ -511,6 +534,15 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 							<h1>처리 이력</h1>
 							<p>수집된 게시글과 카카오톡 전송 상태를 확인합니다.</p>
 						</div>
+						<div class="page-tools">
+							<span class="paging-meta" id="paging-meta"></span>
+							<select class="filter-select page-size-select" id="page-size" aria-label="페이지당 표시 수">
+								<option value="10">10개씩</option>
+								<option value="30" selected>30개씩</option>
+								<option value="50">50개씩</option>
+							</select>
+							<nav class="paging" id="pagination" aria-label="페이지 이동"></nav>
+						</div>
 					</div>
 
 					<!-- 통계 -->
@@ -551,11 +583,6 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 							<option value="ASC">오래된순</option>
 						</select>
 						<span class="spacer"></span>
-						<select class="filter-select" id="page-size" aria-label="페이지당 표시 수">
-							<option value="10">10개씩</option>
-							<option value="30" selected>30개씩</option>
-							<option value="50">50개씩</option>
-						</select>
 					</div>
 
 					<!-- 테이블 -->
@@ -568,11 +595,6 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 						</div>
 					</section>
 
-					<!-- 페이징 -->
-					<div class="paging-wrap">
-						<span class="paging-meta" id="paging-meta"></span>
-						<nav class="paging" id="pagination" aria-label="페이지 이동"></nav>
-					</div>
 				</main>
 			</div>
 		</div>
@@ -762,25 +784,6 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			}
 
 			// ── 페이지네이션 ──
-			function pageNumbers(current, total) {
-				// 현재 페이지 기준 ±2 + 첫/끝 번호 + 줄임표
-				const result = new Set();
-				for (let i = current - 2; i <= current + 2; i++) {
-					if (i >= 1 && i <= total) result.add(i);
-				}
-				result.add(1);
-				result.add(total);
-				const sorted = [...result].sort((a, b) => a - b);
-				const out = [];
-				let prev = 0;
-				for (const n of sorted) {
-					if (prev && n - prev > 1) out.push('…');
-					out.push(n);
-					prev = n;
-				}
-				return out;
-			}
-
 			function renderPaging() {
 				const el = document.getElementById('pagination');
 				const meta = document.getElementById('paging-meta');
@@ -805,18 +808,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 				let h = '';
 				h += `<button class="page-btn" data-go="1" aria-label="맨 앞 페이지" ${atFirst ? 'disabled' : ''}><i class="bi bi-chevron-double-left"></i></button>`;
 				h += `<button class="page-btn" data-go="${current - 1}" aria-label="이전 페이지" ${atFirst ? 'disabled' : ''}><i class="bi bi-chevron-left"></i></button>`;
-
-				for (const n of pageNumbers(current, totalPages)) {
-					if (n === '…') {
-						h += `<span class="page-btn" style="border-color:transparent;cursor:default;" aria-hidden="true">…</span>`;
-					} else {
-						const cur = n === current ? ' is-current' : '';
-						const cls = `page-btn${cur}`;
-						const aria = n === current ? ' aria-current="page"' : '';
-						h += `<button class="${cls}" data-go="${n}"${aria}>${n}</button>`;
-					}
-				}
-
+				h += `<span class="page-indicator" aria-live="polite">${current.toLocaleString()} / ${Math.max(totalPages, 1).toLocaleString()}</span>`;
 				h += `<button class="page-btn" data-go="${current + 1}" aria-label="다음 페이지" ${atLast ? 'disabled' : ''}><i class="bi bi-chevron-right"></i></button>`;
 				h += `<button class="page-btn" data-go="${totalPages}" aria-label="맨 뒤 페이지" ${atLast ? 'disabled' : ''}><i class="bi bi-chevron-double-right"></i></button>`;
 
