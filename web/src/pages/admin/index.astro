@@ -1,0 +1,265 @@
+---
+/**
+ * /admin — 대시보드.
+ * SSR fetch: 전체/성공/실패 집계 + 최근 3건. 인증 쿠키 forward.
+ */
+import AppShell from "../../components/admin/AppShell.astro";
+import PageHeader from "../../components/primitives/PageHeader.astro";
+import Pill from "../../components/primitives/Pill.astro";
+import Icon from "../../components/primitives/Icon.astro";
+
+const API_BASE =
+  import.meta.env.INTERNAL_API_BASE || process.env.INTERNAL_API_BASE || "http://127.0.0.1:8000";
+const cookie = Astro.request.headers.get("cookie") ?? "";
+
+type PostRow = {
+  id: number;
+  board_id: string;
+  post_id: number | string;
+  title: string | null;
+  status: "SUCCESS" | "FAIL" | string;
+  image_count?: number | null;
+  reg_ts?: string | null;
+};
+type ListResponse = { items: PostRow[]; total: number };
+
+async function fetchList(qs: string): Promise<ListResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/posts?${qs}`, {
+      headers: cookie ? { cookie } : {},
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as ListResponse;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchMe(): Promise<{ email?: string } | null> {
+  try {
+    const r = await fetch(`${API_BASE}/api/auth/me`, { headers: cookie ? { cookie } : {} });
+    if (!r.ok) return null;
+    return (await r.json()) as { email?: string };
+  } catch {
+    return null;
+  }
+}
+
+const [recent, allStat, okStat, failStat, me] = await Promise.all([
+  fetchList("limit=3&offset=0&sort_by=reg_ts&sort_order=DESC"),
+  fetchList("limit=1"),
+  fetchList("limit=1&status=SUCCESS"),
+  fetchList("limit=1&status=FAIL"),
+  fetchMe(),
+]);
+
+const hasError = recent === null && allStat === null;
+const total = allStat?.total ?? recent?.total ?? 0;
+const successCount = okStat?.total ?? 0;
+const failCount = failStat?.total ?? 0;
+const items = recent?.items ?? [];
+
+function boardLabel(id: string): string {
+  if (id === "menus/6") return "공지사항";
+  if (id === "menus/13") return "사진";
+  return id;
+}
+
+function fmtDate(s: string | null | undefined): string {
+  if (!s) return "-";
+  return s.replace("T", " ").slice(0, 16);
+}
+
+function escapeHtml(v: unknown): string {
+  return String(v ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" } as Record<string, string>)[c] ?? c
+  );
+}
+---
+
+<AppShell title="대시보드 · 카페 모니터" description="처리 이력 요약" email={me?.email} activeRoute="/admin">
+  <PageHeader title="대시보드" subtitle="네이버 카페 모니터링 처리 이력 요약" />
+
+  <div class="dashboard">
+    {hasError && (
+      <div class="error-banner" role="alert">
+        <Icon name="alert" size={14} />
+        <span>API 서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.</span>
+      </div>
+    )}
+
+    <section class="stats" aria-label="처리 통계">
+      <article class="stat-card">
+        <div class="stat-card__label">전체</div>
+        <div class="stat-card__num">{total.toLocaleString()}</div>
+      </article>
+      <article class="stat-card">
+        <div class="stat-card__label">성공</div>
+        <div class="stat-card__num stat-card__num--ok">{successCount.toLocaleString()}</div>
+      </article>
+      <article class="stat-card">
+        <div class="stat-card__label">실패</div>
+        <div class="stat-card__num stat-card__num--fail">{failCount.toLocaleString()}</div>
+      </article>
+    </section>
+
+    <section class="recent" aria-label="최근 처리 이력">
+      <header class="recent__head">
+        <h2 class="recent__title">최근 처리 이력</h2>
+        <a href="/admin/posts" class="recent__link">
+          전체 보기 <Icon name="chevR" size={12} />
+        </a>
+      </header>
+      {items.length === 0 ? (
+        <div class="recent__empty">최근 처리된 게시글이 없어요.</div>
+      ) : (
+        <ul class="recent__list">
+          {items.map((r) => (
+            <li class="recent__item">
+              <a href={`/admin/posts/${r.id}`} class="recent__row">
+                <Pill tone={r.board_id === "menus/6" ? "warning" : "info"} size="sm">
+                  {boardLabel(r.board_id)}
+                </Pill>
+                <span class="recent__title-cell" set:html={escapeHtml(r.title || "제목없음")} />
+                {r.status === "SUCCESS" ? (
+                  <Pill tone="success" size="sm">성공</Pill>
+                ) : (
+                  <Pill tone="danger" size="sm">실패</Pill>
+                )}
+                <span class="recent__date">{fmtDate(r.reg_ts)}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  </div>
+</AppShell>
+
+<style>
+  .dashboard {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .error-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--danger-soft);
+    color: var(--danger);
+    border: 1px solid var(--danger-border);
+    border-radius: var(--r-6);
+    font-size: var(--fs-13);
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .stat-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--r-6);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .stat-card__label {
+    font-size: var(--fs-12);
+    color: var(--fg-faint);
+  }
+  .stat-card__num {
+    font-size: var(--fs-22);
+    font-weight: 600;
+    color: var(--fg);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+  }
+  .stat-card__num--ok {
+    color: var(--success);
+  }
+  .stat-card__num--fail {
+    color: var(--danger);
+  }
+  .recent {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--r-6);
+    overflow: hidden;
+  }
+  .recent__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .recent__title {
+    font-size: var(--fs-13);
+    font-weight: 600;
+    color: var(--fg);
+    margin: 0;
+  }
+  .recent__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--fs-12);
+    color: var(--fg-muted);
+    text-decoration: none;
+  }
+  .recent__link:hover {
+    color: var(--fg);
+  }
+  .recent__empty {
+    padding: 28px;
+    text-align: center;
+    color: var(--fg-faint);
+    font-size: var(--fs-13);
+  }
+  .recent__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .recent__item {
+    border-bottom: 1px solid var(--divider);
+  }
+  .recent__item:last-child {
+    border-bottom: 0;
+  }
+  .recent__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    text-decoration: none;
+    color: var(--fg);
+    transition: background 0.12s ease;
+  }
+  .recent__row:hover {
+    background: var(--bg-hover);
+  }
+  .recent__title-cell {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--fs-13);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .recent__date {
+    font-size: var(--fs-12);
+    color: var(--fg-faint);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  @media (max-width: 640px) {
+    .stats { grid-template-columns: 1fr; }
+    .recent__date { display: none; }
+  }
+</style>

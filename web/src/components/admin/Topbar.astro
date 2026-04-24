@@ -1,0 +1,65 @@
+---
+/**
+ * Topbar.astro — 어드민 상단바. 좌측 빈 여백 + 우측 이메일/로그아웃.
+ * 로그아웃은 form POST /api/auth/logout (SSR 친화, JS 불필요).
+ */
+import Button from "../primitives/Button.astro";
+import Icon from "../primitives/Icon.astro";
+
+interface Props {
+  email?: string | undefined;
+}
+
+const { email } = Astro.props;
+---
+
+<header class="topbar">
+  <div class="topbar__spacer"></div>
+  <div class="topbar__right">
+    {
+      email && (
+        <div class="topbar__email">
+          <Icon name="user" size={12} />
+          <span>{email}</span>
+        </div>
+      )
+    }
+    <form method="POST" action="/api/auth/logout" class="topbar__logout-form">
+      <Button type="submit" size="sm" variant="ghost" icon="logout" title="로그아웃">
+        로그아웃
+      </Button>
+    </form>
+  </div>
+</header>
+
+<style>
+  .topbar {
+    height: var(--topbar-h);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-elev);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+  }
+  .topbar__spacer {
+    flex: 1;
+    min-width: 0;
+  }
+  .topbar__right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .topbar__email {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--fs-13);
+    color: var(--fg-muted);
+  }
+  .topbar__logout-form {
+    margin: 0;
+    display: inline-flex;
+  }
+</style>

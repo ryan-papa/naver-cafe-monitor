@@ -1,0 +1,78 @@
+---
+/** HelpTip.astro — '?' 원형 버튼. 클릭 시 툴팁 토글, ESC/바깥 클릭 닫기. aria-describedby 연결. island 모듈은 /islands/helptip.ts. */
+interface Props {
+  label?: string;
+  id?: string;
+  class?: string;
+}
+
+const { label = "설명", id, class: className } = Astro.props;
+const uid = id ?? `helptip-${Math.random().toString(36).slice(2, 10)}`;
+const tipId = `${uid}-tip`;
+---
+<span class={`helptip${className ? " " + className : ""}`} data-helptip>
+  <button
+    type="button"
+    class="helptip__trigger"
+    aria-label={label}
+    aria-expanded="false"
+    aria-describedby={tipId}
+    data-helptip-trigger
+  >?</button>
+  <span role="tooltip" id={tipId} class="helptip__tip" data-helptip-tip hidden>
+    <slot />
+  </span>
+</span>
+
+<script>
+  import { initHelpTips } from "../../islands/helptip";
+  initHelpTips();
+</script>
+
+<style>
+  .helptip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    margin-left: 4px;
+  }
+  .helptip__trigger {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-elev);
+    color: var(--fg-muted);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+  }
+  .helptip__trigger:hover {
+    background: var(--bg-hover);
+  }
+  .helptip__tip {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 20;
+    min-width: 200px;
+    max-width: 320px;
+    padding: 8px 10px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--r-6);
+    box-shadow: var(--shadow-md);
+    font-size: 12px;
+    color: var(--fg);
+    line-height: 1.5;
+  }
+  .helptip__tip[hidden] {
+    display: none;
+  }
+</style>

@@ -1,0 +1,83 @@
+---
+/** Input.astro — size sm/md, icon(선택), 에러 상태. props는 native input 속성 + icon/size/error. */
+import type { HTMLAttributes } from "astro/types";
+import Icon, { type IconName } from "./Icon.astro";
+
+type Size = "sm" | "md";
+type InputType = HTMLAttributes<"input">["type"];
+
+interface Props {
+  icon?: IconName;
+  size?: Size;
+  error?: boolean;
+  type?: InputType;
+  name?: string;
+  id?: string;
+  value?: string | number;
+  placeholder?: string;
+  required?: boolean;
+  disabled?: boolean;
+  readonly?: boolean;
+  autocomplete?: string;
+  maxlength?: number;
+  minlength?: number;
+  pattern?: string;
+  inputmode?: "none" | "text" | "decimal" | "numeric" | "tel" | "search" | "email" | "url";
+  "aria-label"?: string;
+  "aria-describedby"?: string;
+  "data-testid"?: string;
+  class?: string;
+}
+
+const { icon, size = "md", error = false, class: className, ...rest } = Astro.props;
+const h = size === "sm" ? 26 : 30;
+const fs = size === "sm" ? 12 : 13;
+const pad = icon ? 8 : 10;
+---
+<div
+  class={`input-wrap${error ? " is-error" : ""}${className ? " " + className : ""}`}
+  style={`height:${h}px;padding:0 ${pad}px;`}
+>
+  {icon && (
+    <span class="input-icon"><Icon name={icon} size={fs} /></span>
+  )}
+  <input class="input-el" style={`font-size:${fs}px;`} {...rest} />
+</div>
+
+<style>
+  .input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--r-4);
+    width: 100%;
+  }
+  .input-wrap.is-error {
+    border-color: var(--danger-border);
+  }
+  .input-wrap:focus-within {
+    border-color: var(--accent-border);
+  }
+  .input-icon {
+    color: var(--fg-faint);
+    display: inline-flex;
+  }
+  .input-el {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--fg);
+    font-family: inherit;
+  }
+  .input-el::placeholder {
+    color: var(--fg-faint);
+  }
+  .input-el:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+</style>

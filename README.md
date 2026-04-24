@@ -68,7 +68,7 @@
   [로그인]   외부: 이메일+비번+TOTP 필수
              내부(mTLS): TOTP 스킵 (claim 없음)
              외부에서 TOTP 미설정 시 claim `totp_setup_required=true`
-             → SSR 미들웨어가 /settings/2fa 로 강제 리다이렉트
+             → SSR 미들웨어가 /admin/settings/2fa 로 강제 리다이렉트
 
   [세션]     JWT access(1h)+refresh(24h) httpOnly Secure Cookie
              Rotation + 재사용 감지 (단일 세션)
@@ -320,7 +320,11 @@ naver-cafe-monitor/
 │   ├── config/             # config.example.yaml
 │   └── tests/
 ├── web/                    # Astro 프론트엔드 (SSR)
-│   ├── src/pages/          # index(대시보드) / login / signup / settings/2fa / error/*
+│   ├── src/pages/          # admin/* (대시보드·처리이력·상세·2FA) / login / signup / error/*
+│   ├── src/components/     # admin/(AppShell·Sidebar·Topbar·Modal) + primitives/(Button·Input·Select·Pill·Icon·DataTable·PageHeader·Pagination·HelpTip)
+│   ├── src/islands/        # modal·helptip·resend-cooldown (바닐라 TS)
+│   ├── src/styles/         # tokens.css (oklch 디자인 토큰) + globals.css
+│   ├── tests/e2e/          # Playwright + axe 접근성
 │   ├── src/middleware.ts   # 인증 가드 + 반쪽 세션 리다이렉트
 │   ├── src/lib/            # auth-client, qr, public-paths
 │   ├── astro.config.mjs

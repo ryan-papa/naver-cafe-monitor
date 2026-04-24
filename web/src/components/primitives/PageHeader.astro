@@ -1,0 +1,53 @@
+---
+/** PageHeader.astro — title(prop), subtitle(prop), actions(slot="actions"). */
+interface Props {
+  title: string;
+  subtitle?: string;
+  class?: string;
+}
+
+const { title, subtitle, class: className } = Astro.props;
+---
+<div class={`page-header${className ? " " + className : ""}`}>
+  <div class="page-header__text">
+    <h1 class="page-header__title">{title}</h1>
+    {subtitle && <div class="page-header__subtitle">{subtitle}</div>}
+  </div>
+  <div class="page-header__actions">
+    <slot name="actions" />
+  </div>
+</div>
+
+<style>
+  .page-header {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    gap: 12px;
+  }
+  .page-header__text {
+    flex: 1;
+    min-width: 0;
+  }
+  .page-header__title {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--fg);
+    margin: 0;
+  }
+  .page-header__subtitle {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--fg-faint);
+  }
+  .page-header__actions {
+    display: flex;
+    gap: 6px;
+  }
+  .page-header__actions:empty {
+    display: none;
+  }
+</style>

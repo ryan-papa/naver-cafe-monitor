@@ -80,3 +80,7 @@ deploy/ssl/
 deploy/db-init/*-restore.sql
 deploy/db-init/*-dump.sql
 deploy/db-data/
+
+# Playwright
+/web/playwright-report/
+/web/test-results/

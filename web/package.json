@@ -10,16 +10,19 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "test": "vitest run"
+    "check": "astro check",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@astrojs/node": "^10.0.5",
     "astro": "^6.1.6",
-    "bootstrap": "^5.3.8",
-    "bootstrap-icons": "^1.13.1",
+    "focus-trap": "^7.6.2",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.1",
+    "@playwright/test": "^1.49.1",
     "@types/qrcode": "^1.5.6",
     "vitest": "^4.1.4"
   }

@@ -1,0 +1,432 @@
+---
+/**
+ * /admin/settings/2fa — 2단계 인증 설정.
+ * 기존 /settings/2fa 의 QR/백업코드/초기설정/재설정 로직을 그대로 이식.
+ * 래퍼만 AppShell + museum-finder 토큰으로 교체.
+ */
+import AppShell from "../../../components/admin/AppShell.astro";
+import PageHeader from "../../../components/primitives/PageHeader.astro";
+import Button from "../../../components/primitives/Button.astro";
+import Input from "../../../components/primitives/Input.astro";
+import Modal from "../../../components/admin/Modal.astro";
+
+const API_BASE =
+  import.meta.env.INTERNAL_API_BASE || process.env.INTERNAL_API_BASE || "http://127.0.0.1:8000";
+const cookie = Astro.request.headers.get("cookie") ?? "";
+
+async function fetchMe(): Promise<{ email?: string } | null> {
+  try {
+    const r = await fetch(`${API_BASE}/api/auth/me`, { headers: cookie ? { cookie } : {} });
+    if (!r.ok) return null;
+    return (await r.json()) as { email?: string };
+  } catch {
+    return null;
+  }
+}
+
+const me = await fetchMe();
+---
+
+<AppShell
+  title="2단계 인증 · 카페 모니터"
+  description="TOTP 설정 및 재설정"
+  email={me?.email}
+  activeRoute="/admin/settings/2fa"
+>
+  <PageHeader title="2단계 인증" subtitle="TOTP 인증 앱 연결 · 재설정" />
+
+  <div class="tfa">
+    <div id="err" class="alert alert--danger" role="alert" hidden></div>
+    <div id="loading" class="tfa__loading">불러오는 중…</div>
+
+    <!-- 초기 설정 (미활성) -->
+    <section id="setup" class="panel" hidden>
+      <div class="panel__tabs" role="tablist" aria-label="2FA 설정">
+        <button type="button" class="tab is-active" role="tab" aria-selected="true">
+          인증 앱 연결
+        </button>
+      </div>
+      <div class="panel__body">
+        <p class="tfa__sub">
+          Google Authenticator 등으로 QR을 스캔한 뒤 6자리 코드를 입력하세요.
+        </p>
+        <div class="card-inner tfa__qr">
+          <img id="setup-qr" alt="TOTP QR" />
+        </div>
+        <div id="setup-codes-wrap" class="card-inner tfa__codes" hidden>
+          <div class="tfa__codes-title">백업 코드 (안전한 곳에 보관)</div>
+          <ul id="setup-codes"></ul>
+        </div>
+        <div class="tfa__field">
+          <label for="setup-totp">인증 코드</label>
+          <Input
+            id="setup-totp"
+            type="text"
+            inputmode="numeric"
+            maxlength={6}
+            autocomplete="one-time-code"
+          />
+        </div>
+        <div class="tfa__actions">
+          <Button id="setup-confirm" variant="primary" size="lg" type="button">
+            활성화 완료
+          </Button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 재설정 (활성) -->
+    <section id="reset" class="panel" hidden>
+      <div class="panel__tabs" role="tablist" aria-label="2FA 재설정 방식">
+        <button type="button" class="tab is-active" data-m="totp" role="tab" aria-selected="true">
+          TOTP 코드
+        </button>
+        <button type="button" class="tab" data-m="backup" role="tab" aria-selected="false">
+          백업 코드
+        </button>
+      </div>
+      <div class="panel__body">
+        <div class="alert alert--success" role="status">현재 2FA 활성화됨</div>
+        <p class="tfa__sub">
+          현재 비밀번호와 TOTP 또는 백업 코드 1개로 본인확인 후 새 코드를 발급합니다.
+        </p>
+
+        <div class="tfa__field">
+          <label for="reset-pw">현재 비밀번호</label>
+          <Input id="reset-pw" type="password" autocomplete="current-password" />
+        </div>
+
+        <div id="reset-totp-wrap" class="tfa__field">
+          <label for="reset-totp">인증 코드 (6자리)</label>
+          <Input id="reset-totp" type="text" inputmode="numeric" maxlength={6} />
+        </div>
+        <div id="reset-backup-wrap" class="tfa__field" hidden>
+          <label for="reset-backup">백업 코드 (10자)</label>
+          <Input id="reset-backup" type="text" maxlength={10} />
+        </div>
+
+        <div class="tfa__actions">
+          <Button id="reset-open" variant="primary" size="lg" type="button">
+            새 코드 발급
+          </Button>
+        </div>
+
+        <div id="reset-result" class="tfa__result" hidden>
+          <h2 class="tfa__result-title">새 QR을 스캔하세요</h2>
+          <div class="card-inner tfa__qr">
+            <img id="reset-qr" alt="TOTP QR" />
+          </div>
+          <div class="card-inner tfa__codes">
+            <div class="tfa__codes-title">새 백업 코드 (기존은 무효)</div>
+            <ul id="reset-codes"></ul>
+          </div>
+          <div class="tfa__actions">
+            <a href="/admin" class="btn-link">완료</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <Modal id="reset-confirm" title="2FA 재설정 확인" size="sm">
+    <p>기존 TOTP 및 백업 코드가 모두 무효화됩니다. 계속하시겠어요?</p>
+    <div slot="footer">
+      <Button type="button" variant="default" data-modal-close>취소</Button>
+      <Button id="reset-submit" type="button" variant="primary">재설정</Button>
+    </div>
+  </Modal>
+</AppShell>
+
+<style>
+  .tfa {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 560px;
+  }
+  .tfa__loading {
+    color: var(--fg-muted);
+    font-size: var(--fs-13);
+    padding: 16px;
+  }
+  .alert {
+    padding: 10px 12px;
+    border-radius: var(--r-6);
+    font-size: var(--fs-13);
+    border: 1px solid transparent;
+  }
+  .alert--danger {
+    background: var(--danger-soft);
+    color: var(--danger);
+    border-color: var(--danger-border);
+  }
+  .alert--success {
+    background: var(--success-soft);
+    color: var(--success);
+    border-color: var(--success-border);
+    margin-bottom: 12px;
+  }
+  .panel {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--r-6);
+    overflow: hidden;
+  }
+  .panel__tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-soft);
+  }
+  .tab {
+    flex: 0 0 auto;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-size: var(--fs-13);
+    font-weight: 500;
+    color: var(--fg-muted);
+    cursor: pointer;
+    font-family: inherit;
+    transition: color 0.12s ease, border-color 0.12s ease;
+  }
+  .tab:hover:not(.is-active) {
+    color: var(--fg);
+  }
+  .tab.is-active {
+    color: var(--fg);
+    border-bottom-color: var(--accent-border);
+    font-weight: 600;
+  }
+  .panel__body {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .tfa__sub {
+    font-size: var(--fs-13);
+    color: var(--fg-muted);
+    margin: 0;
+  }
+  .card-inner {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--r-6);
+    padding: 16px;
+  }
+  .tfa__qr {
+    display: flex;
+    justify-content: center;
+    background: #fff;
+  }
+  .tfa__qr img {
+    width: 200px;
+    height: 200px;
+    display: block;
+  }
+  .tfa__codes {
+    background: var(--warning-soft);
+    border-color: var(--warning-border);
+  }
+  .tfa__codes-title {
+    font-size: var(--fs-12);
+    font-weight: 600;
+    color: var(--warning);
+    margin-bottom: 8px;
+  }
+  .tfa__codes ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    columns: 2;
+    column-gap: 8px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-12);
+    color: var(--fg);
+  }
+  .tfa__codes li {
+    padding: 2px 0;
+  }
+  .tfa__field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .tfa__field label {
+    font-size: var(--fs-12);
+    font-weight: 500;
+    color: var(--fg-muted);
+  }
+  .tfa__actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .tfa__result {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border-top: 1px solid var(--divider);
+    padding-top: 16px;
+  }
+  .tfa__result-title {
+    font-size: var(--fs-14);
+    font-weight: 600;
+    margin: 0;
+  }
+  .btn-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: var(--r-4);
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    color: var(--fg-muted);
+    font-size: var(--fs-13);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .btn-link:hover {
+    background: var(--bg-hover);
+    color: var(--fg);
+  }
+  @media (max-width: 640px) {
+    .tfa { max-width: none; }
+  }
+</style>
+
+<script>
+  import { csrfFetch, fetchPublicKey, encryptField } from '../../../lib/auth-client';
+  import { otpauthToDataUrl } from '../../../lib/qr';
+  import { initModals, openModal, closeModal } from '../../../islands/modal';
+
+  const errBox = document.getElementById('err') as HTMLDivElement;
+  const loading = document.getElementById('loading') as HTMLDivElement;
+  const setupBox = document.getElementById('setup') as HTMLElement;
+  const resetBox = document.getElementById('reset') as HTMLElement;
+
+  function showErr(msg: string) { errBox.textContent = msg; errBox.hidden = false; }
+  function clearErr() { errBox.hidden = true; errBox.textContent = ''; }
+
+  const ERR: Record<string, string> = {
+    already_enabled: '이미 활성화된 상태입니다.',
+    not_initialized: '아직 초기화되지 않았습니다.',
+    totp_invalid: '인증 코드가 올바르지 않습니다.',
+    invalid_password: '비밀번호가 올바르지 않습니다.',
+    second_factor_invalid: 'TOTP 또는 백업 코드를 확인해주세요.',
+  };
+
+  async function setQr(img: HTMLImageElement, otpauth: string) {
+    img.src = await otpauthToDataUrl(otpauth);
+  }
+  function renderCodes(list: string[], ul: HTMLUListElement) {
+    ul.innerHTML = '';
+    for (const c of list) {
+      const li = document.createElement('li');
+      li.textContent = c;
+      ul.appendChild(li);
+    }
+  }
+
+  async function bootstrap() {
+    const r = await csrfFetch('/api/settings/2fa/status');
+    if (!r.ok) { loading.textContent = '상태를 불러오지 못했습니다.'; return; }
+    const s = await r.json();
+    loading.hidden = true;
+    if (s.totp_enabled) {
+      resetBox.hidden = false;
+    } else {
+      setupBox.hidden = false;
+      await initSetup();
+    }
+    initModals();
+  }
+
+  async function initSetup() {
+    const r = await csrfFetch('/api/settings/2fa/init', { method: 'POST' });
+    if (!r.ok) { showErr('초기화 실패'); return; }
+    const data = await r.json();
+    await setQr(document.getElementById('setup-qr') as HTMLImageElement, data.otpauth_url);
+    if (data.backup_codes) {
+      (document.getElementById('setup-codes-wrap') as HTMLElement).hidden = false;
+      renderCodes(data.backup_codes, document.getElementById('setup-codes') as HTMLUListElement);
+    }
+  }
+
+  (document.getElementById('setup-confirm') as HTMLButtonElement).addEventListener('click', async () => {
+    clearErr();
+    const code = (document.getElementById('setup-totp') as HTMLInputElement).value.trim();
+    if (code.length < 6) { showErr('6자리 코드를 입력하세요.'); return; }
+    const r = await csrfFetch('/api/settings/2fa/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ totp_code: code }),
+    });
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      showErr(ERR[d.detail] || '실패 (' + d.detail + ')');
+      return;
+    }
+    window.location.assign('/admin');
+  });
+
+  // reset tabs
+  document.querySelectorAll<HTMLButtonElement>('#reset .tab').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll<HTMLButtonElement>('#reset .tab').forEach((b) => {
+        b.classList.remove('is-active');
+        b.setAttribute('aria-selected', 'false');
+      });
+      btn.classList.add('is-active');
+      btn.setAttribute('aria-selected', 'true');
+      const m = btn.dataset.m;
+      (document.getElementById('reset-totp-wrap') as HTMLElement).hidden = m !== 'totp';
+      (document.getElementById('reset-backup-wrap') as HTMLElement).hidden = m !== 'backup';
+    });
+  });
+
+  (document.getElementById('reset-open') as HTMLButtonElement).addEventListener('click', () => {
+    clearErr();
+    const pw = (document.getElementById('reset-pw') as HTMLInputElement).value;
+    if (!pw) { showErr('비밀번호를 입력하세요.'); return; }
+    openModal('reset-confirm');
+  });
+
+  (document.getElementById('reset-submit') as HTMLButtonElement).addEventListener('click', async () => {
+    clearErr();
+    const pw = (document.getElementById('reset-pw') as HTMLInputElement).value;
+    if (!pw) { showErr('비밀번호를 입력하세요.'); closeModal('reset-confirm'); return; }
+    const totp = (document.getElementById('reset-totp') as HTMLInputElement).value.trim();
+    const backup = (document.getElementById('reset-backup') as HTMLInputElement).value.trim();
+    try {
+      const pub = await fetchPublicKey();
+      const body: Record<string, string> = { password_enc: await encryptField(pub, pw) };
+      if (totp) body.totp_code = totp;
+      if (backup) body.backup_code = backup;
+      const r = await csrfFetch('/api/settings/2fa/reset', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      closeModal('reset-confirm');
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        showErr(ERR[d.detail] || '실패 (' + d.detail + ')');
+        return;
+      }
+      const data = await r.json();
+      await setQr(document.getElementById('reset-qr') as HTMLImageElement, data.otpauth_url);
+      renderCodes(data.backup_codes, document.getElementById('reset-codes') as HTMLUListElement);
+      (document.getElementById('reset-result') as HTMLElement).hidden = false;
+    } catch (e) {
+      console.error(e);
+      closeModal('reset-confirm');
+      showErr('네트워크 오류');
+    }
+  });
+
+  bootstrap();
+</script>
