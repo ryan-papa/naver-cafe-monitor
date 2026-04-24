@@ -23,6 +23,7 @@ batch/config/google_token.json
 
 # Kakao token
 batch/config/kakao_token.json
+batch/config/kakao_token.json.lock
 
 # Cookies (session data)
 batch/data/cookies.json
