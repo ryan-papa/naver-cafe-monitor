@@ -107,7 +107,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 				border-radius: 4px;
 				color: #5b5a55;
 				font-size: 13px;
-				font-weight: 400;
+				font-weight: 500;
 				text-decoration: none;
 				margin-bottom: 1px;
 			}
@@ -251,15 +251,17 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			}
 			.filter-bar .spacer { flex: 1; }
 			.filter-select {
-				font-size: 0.82rem; font-weight: 400; font-family: inherit;
-				border: 1px solid var(--border-color); border-radius: var(--radius-sm);
-				padding: 8px 36px 8px 14px; color: var(--text-primary);
-				background: var(--bg-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238d949e' d='M2.5 4.5L6 8l3.5-3.5'/%3E%3C/svg%3E") no-repeat right 12px center;
+				font-size: 13px; font-weight: 400; font-family: inherit;
+				height: 30px;
+				border: 1px solid var(--border);
+				border-radius: 4px;
+				padding: 0 28px 0 10px; color: var(--text-primary);
+				background: var(--bg-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236e6b63' d='M2.5 4.5L6 8l3.5-3.5'/%3E%3C/svg%3E") no-repeat right 8px center;
 				appearance: none; cursor: pointer;
-				transition: border-color 0.15s, box-shadow 0.15s;
+				transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
 			}
-			.filter-select:hover { border-color: var(--color-primary); }
-			.filter-select:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(46,133,85,0.1); }
+			.filter-select:hover { border-color: var(--border-strong); }
+			.filter-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 			/* ── 테이블 카드 ── */
 			.data-card {
@@ -340,16 +342,16 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			.paging { display: flex; justify-content: center; align-items: center; gap: 4px; flex-wrap: wrap; }
 			.paging-meta { font-size: 0.8rem; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 			.page-btn {
-				font-size: 0.82rem; font-weight: 500; font-family: inherit;
-				min-width: 36px; height: 36px; padding: 0 10px; border-radius: var(--radius-sm);
-				border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary);
-				cursor: pointer; transition: all 0.15s;
+				font-size: 13px; font-weight: 500; font-family: inherit;
+				min-width: 30px; height: 30px; padding: 0 8px; border-radius: 4px;
+				border: 1px solid var(--border); background: var(--bg-elev); color: var(--fg);
+				cursor: pointer; transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 				display: inline-flex; align-items: center; justify-content: center; gap: 4px;
 				font-variant-numeric: tabular-nums;
 			}
-			.page-btn:hover:not(:disabled):not(.is-current) { border-color: var(--color-primary); color: var(--color-primary); background: var(--color-primary-lightest); }
+			.page-btn:hover:not(:disabled):not(.is-current) { border-color: var(--border-strong); color: var(--fg); background: var(--bg-hover); }
 			.page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-			.page-btn.is-current { background: var(--color-primary); color: #fff; border-color: var(--color-primary); cursor: default; }
+			.page-btn.is-current { background: var(--fg); color: var(--bg); border-color: var(--fg); cursor: default; }
 
 			/* ── 모달 ── */
 			.modal-backdrop {
