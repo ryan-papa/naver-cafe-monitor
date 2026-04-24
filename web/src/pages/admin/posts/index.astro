@@ -1,0 +1,346 @@
+---
+/**
+ * /admin/posts — 처리 이력 목록.
+ * SSR fetch로 URL 쿼리에 따라 리스트 로드. 행 클릭 → /admin/posts/{id}.
+ * URL 쿼리: q, board, status, sort, page(0-base), size.
+ */
+import AppShell from "../../../components/admin/AppShell.astro";
+import PageHeader from "../../../components/primitives/PageHeader.astro";
+import Pagination from "../../../components/primitives/Pagination.astro";
+import Input from "../../../components/primitives/Input.astro";
+import Select from "../../../components/primitives/Select.astro";
+import Button from "../../../components/primitives/Button.astro";
+import Pill from "../../../components/primitives/Pill.astro";
+import Icon from "../../../components/primitives/Icon.astro";
+
+const API_BASE =
+  import.meta.env.INTERNAL_API_BASE || process.env.INTERNAL_API_BASE || "http://127.0.0.1:8000";
+const cookie = Astro.request.headers.get("cookie") ?? "";
+const url = Astro.url;
+
+const VALID_SIZES = [10, 20, 50, 100];
+const DEFAULT_SIZE = 20;
+
+const q = (url.searchParams.get("q") ?? "").trim();
+const board = url.searchParams.get("board") ?? "";
+const status = url.searchParams.get("status") ?? "";
+const sort = url.searchParams.get("sort") ?? "desc";
+const pageRaw = parseInt(url.searchParams.get("page") ?? "0", 10);
+const page = Number.isFinite(pageRaw) && pageRaw >= 0 ? pageRaw : 0;
+const sizeRaw = parseInt(url.searchParams.get("size") ?? String(DEFAULT_SIZE), 10);
+const size = VALID_SIZES.includes(sizeRaw) ? sizeRaw : DEFAULT_SIZE;
+const sortOrder = sort === "asc" ? "ASC" : "DESC";
+
+type PostRow = {
+  id: number;
+  board_id: string;
+  post_id: number | string;
+  title: string | null;
+  status: "SUCCESS" | "FAIL" | string;
+  image_count?: number | null;
+  reg_ts?: string | null;
+};
+type ListResponse = { items: PostRow[]; total: number };
+
+async function fetchList(qs: string): Promise<ListResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/posts?${qs}`, {
+      headers: cookie ? { cookie } : {},
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as ListResponse;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchMe(): Promise<{ email?: string } | null> {
+  try {
+    const r = await fetch(`${API_BASE}/api/auth/me`, { headers: cookie ? { cookie } : {} });
+    if (!r.ok) return null;
+    return (await r.json()) as { email?: string };
+  } catch {
+    return null;
+  }
+}
+
+const params = new URLSearchParams({
+  offset: String(page * size),
+  limit: String(size),
+  sort_by: "reg_ts",
+  sort_order: sortOrder,
+});
+if (board) params.set("board_id", board);
+if (status) params.set("status", status);
+
+const [data, me] = await Promise.all([fetchList(params.toString()), fetchMe()]);
+const hasError = data === null;
+const items = data?.items ?? [];
+const total = data?.total ?? 0;
+
+// 클라이언트 제목 검색 (API 미지원). 행 필터링은 현재 페이지 내에서만.
+const filteredItems = q ? items.filter((r) => (r.title ?? "").includes(q)) : items;
+
+const totalPages = Math.max(1, Math.ceil(total / size));
+
+function boardLabel(id: string): string {
+  if (id === "menus/6") return "공지사항";
+  if (id === "menus/13") return "사진";
+  return id;
+}
+
+function fmtDate(s: string | null | undefined): string {
+  if (!s) return "-";
+  return s.replace("T", " ").slice(0, 16);
+}
+
+const BOARD_OPTIONS = [
+  { value: "", label: "전체 게시판" },
+  { value: "menus/6", label: "공지사항" },
+  { value: "menus/13", label: "사진" },
+];
+const STATUS_OPTIONS = [
+  { value: "", label: "전체 상태" },
+  { value: "SUCCESS", label: "성공" },
+  { value: "FAIL", label: "실패" },
+];
+const SORT_OPTIONS = [
+  { value: "desc", label: "최신순" },
+  { value: "asc", label: "오래된순" },
+];
+---
+
+<AppShell
+  title="처리 이력 · 카페 모니터"
+  description="수집된 게시글 처리 이력"
+  email={me?.email}
+  activeRoute="/admin/posts"
+>
+  <PageHeader title="처리 이력" subtitle={`전체 ${total.toLocaleString()}건`}>
+    <Pagination
+      slot="actions"
+      page={page}
+      pageSize={size}
+      totalElements={total}
+      totalPages={totalPages}
+      itemsOnPage={filteredItems.length}
+    />
+  </PageHeader>
+
+  {hasError && (
+    <div class="error-banner" role="alert">
+      <Icon name="alert" size={14} />
+      <span>API 서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.</span>
+    </div>
+  )}
+
+  <form method="GET" action="/admin/posts" role="search" aria-label="처리 이력 필터" class="filter-form">
+    <input type="hidden" name="page" value="0" />
+    <input type="hidden" name="size" value={String(size)} />
+    <div class="filter-row">
+      <div class="filter-search">
+        <Input icon="search" size="sm" name="q" value={q} placeholder="제목 검색" aria-label="제목 검색" />
+      </div>
+      <Select size="sm" name="board" value={board} aria-label="게시판" options={BOARD_OPTIONS} />
+      <Select size="sm" name="status" value={status} aria-label="상태" options={STATUS_OPTIONS} />
+      <Select size="sm" name="sort" value={sort} aria-label="정렬" options={SORT_OPTIONS} />
+      <Button type="submit" size="sm" variant="primary">검색</Button>
+      <a href="/admin/posts" class="reset-link">초기화</a>
+    </div>
+  </form>
+
+  <section class="list" aria-label="처리 이력 목록">
+    {filteredItems.length === 0 ? (
+      <div class="empty">
+        <Icon name="inbox" size={22} />
+        <p>조건에 맞는 결과가 없어요.</p>
+      </div>
+    ) : (
+      <table class="mf-table">
+        <thead>
+          <tr>
+            <th scope="col" style="width:100px">게시판</th>
+            <th scope="col" style="width:80px; text-align:right">번호</th>
+            <th scope="col">제목</th>
+            <th scope="col" style="width:80px; text-align:right">이미지</th>
+            <th scope="col" style="width:80px">상태</th>
+            <th scope="col" style="width:140px">처리일시</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredItems.map((r) => (
+            <tr>
+              <td>
+                <a href={`/admin/posts/${r.id}`} class="row-link" tabindex="-1">
+                  <Pill tone={r.board_id === "menus/6" ? "warning" : "info"} size="sm">
+                    {boardLabel(r.board_id)}
+                  </Pill>
+                </a>
+              </td>
+              <td style="text-align:right">
+                <a href={`/admin/posts/${r.id}`} class="row-link row-link--mono" tabindex="-1">
+                  {String(r.post_id)}
+                </a>
+              </td>
+              <td>
+                <a href={`/admin/posts/${r.id}`} class="row-link row-link--title">
+                  {r.title || "제목없음"}
+                </a>
+              </td>
+              <td style="text-align:right">
+                <a href={`/admin/posts/${r.id}`} class="row-link row-link--mono" tabindex="-1">
+                  {r.image_count ? `${r.image_count}` : "-"}
+                </a>
+              </td>
+              <td>
+                <a href={`/admin/posts/${r.id}`} class="row-link" tabindex="-1">
+                  {r.status === "SUCCESS" ? (
+                    <Pill tone="success" size="sm">성공</Pill>
+                  ) : (
+                    <Pill tone="danger" size="sm">실패</Pill>
+                  )}
+                </a>
+              </td>
+              <td>
+                <a href={`/admin/posts/${r.id}`} class="row-link row-link--date" tabindex="-1">
+                  {fmtDate(r.reg_ts)}
+                </a>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </section>
+
+  <div class="pagination-bottom">
+    <Pagination
+      page={page}
+      pageSize={size}
+      totalElements={total}
+      totalPages={totalPages}
+      itemsOnPage={filteredItems.length}
+    />
+  </div>
+</AppShell>
+
+<script>
+  // 필터 Select change → form 자동 제출 (페이지 0으로 리셋).
+  document.querySelectorAll<HTMLSelectElement>(".filter-form select").forEach((sel) => {
+    sel.addEventListener("change", () => {
+      const form = sel.closest("form");
+      if (!form) return;
+      const pageField = form.querySelector<HTMLInputElement>('input[name="page"]');
+      if (pageField) pageField.value = "0";
+      form.submit();
+    });
+  });
+</script>
+
+<style>
+  .error-banner {
+    margin: 12px 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--danger-soft);
+    color: var(--danger);
+    border: 1px solid var(--danger-border);
+    border-radius: var(--r-6);
+    font-size: var(--fs-13);
+  }
+  .filter-form {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-soft);
+  }
+  .filter-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .filter-search {
+    width: 260px;
+    max-width: 100%;
+  }
+  .reset-link {
+    font-size: var(--fs-12);
+    color: var(--fg-muted);
+    text-decoration: none;
+    padding: 0 6px;
+  }
+  .reset-link:hover {
+    color: var(--fg);
+    text-decoration: underline;
+  }
+  .list {
+    padding: 0 16px;
+    margin-top: 12px;
+  }
+  .empty {
+    padding: 48px 16px;
+    text-align: center;
+    color: var(--fg-faint);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .mf-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--fs-13);
+  }
+  .mf-table thead tr {
+    color: var(--fg-faint);
+    font-size: var(--fs-12);
+    letter-spacing: 0.02em;
+    border-bottom: 1px solid var(--border);
+  }
+  .mf-table th {
+    padding: 8px;
+    font-weight: 500;
+    text-align: left;
+  }
+  .mf-table td {
+    padding: 0;
+    color: var(--fg);
+    vertical-align: middle;
+    border-bottom: 1px solid var(--divider);
+  }
+  .mf-table tbody tr:hover {
+    background: var(--bg-hover);
+  }
+  .row-link {
+    display: block;
+    padding: 7px 8px;
+    color: inherit;
+    text-decoration: none;
+  }
+  .row-link--mono {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--fg-faint);
+    font-size: var(--fs-12);
+  }
+  .row-link--title {
+    font-weight: 400;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  .row-link--date {
+    color: var(--fg-muted);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--fs-12);
+    white-space: nowrap;
+  }
+  .pagination-bottom {
+    padding: 12px 16px 20px;
+    display: flex;
+    justify-content: flex-end;
+  }
+</style>

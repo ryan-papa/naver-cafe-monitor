@@ -1,209 +1,422 @@
 ---
+/**
+ * /signup — 3단계 회원가입(계정 → QR → 확인).
+ * museum-finder 토큰 기반 카드 리디자인. 폼 로직·API·에러처리 유지.
+ */
+import BaseHead from "../components/BaseHead.astro";
+import Button from "../components/primitives/Button.astro";
+import Input from "../components/primitives/Input.astro";
+import "../styles/tokens.css";
+import "../styles/globals.css";
 ---
 
 <html lang="ko">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>회원가입 · 카페 모니터</title>
-		<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-		<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard-dynamic-subset.min.css" rel="stylesheet" />
-		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" />
-		<style>
-			:root{--bg:#fafaf7;--bg-soft:#f3f2ee;--bg-elev:#fff;--bg-hover:#f1efea;--border:#e5e3dc;--border-strong:#cdc9bf;--fg:#0f0f10;--fg-muted:#5b5a55;--fg-faint:#6e6b63;--accent:oklch(0.52 0.11 255);--accent-hover:oklch(0.46 0.12 255);--accent-soft:oklch(0.94 0.03 255);--danger:oklch(0.48 0.18 25);--danger-soft:oklch(0.95 0.04 25);--warning:oklch(0.50 0.14 75);--warning-soft:oklch(0.96 0.05 85);--shadow:0 12px 32px rgba(15,15,16,0.08),0 0 0 1px rgba(15,15,16,0.04)}
-			*{box-sizing:border-box;margin:0;padding:0}
-			body{font-family:'Pretendard Variable',Pretendard,-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--fg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 16px;font-size:13px;line-height:1.45}
-			.card{background:var(--bg-elev);border:1px solid var(--border);border-radius:8px;padding:28px;box-shadow:var(--shadow);max-width:440px;width:100%}
-			.brand{display:flex;align-items:center;gap:8px;margin-bottom:22px}
-			.brand-icon{width:28px;height:28px;border-radius:4px;background:var(--fg);color:var(--bg);display:flex;align-items:center;justify-content:center;font-size:.95rem}
-			.brand span:last-child{font-size:13px;font-weight:600}
-			.steps{display:flex;gap:4px;margin-bottom:22px}
-			.step{flex:1;height:4px;border-radius:2px;background:var(--border)}
-			.step.active{background:var(--accent)}
-			h1{font-size:20px;font-weight:700;letter-spacing:0;margin-bottom:4px}
-			.sub{font-size:13px;color:var(--fg-muted);margin-bottom:24px;font-weight:400}
-			label{display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--fg-muted)}
-			input{width:100%;height:38px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:inherit;background:#fff;margin-bottom:12px;color:var(--fg)}
-			input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-			.hint{font-size:12px;color:var(--fg-muted);margin-top:-6px;margin-bottom:12px}
-			.btn{width:100%;height:38px;padding:0 12px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;background:var(--accent);color:#fff;transition:background .15s}
-			.btn:hover{background:var(--accent-hover)}.btn:disabled{opacity:.5;cursor:not-allowed}
-			.btn-ghost{background:transparent;color:var(--fg-muted);border:1px solid var(--border)}
-			.err{background:var(--danger-soft);color:var(--danger);border:1px solid oklch(0.85 0.09 25);border-radius:6px;padding:10px 12px;font-size:13px;margin-bottom:12px;display:none}
-			.err.show{display:block}
-			.qr{display:flex;justify-content:center;margin:16px 0;padding:16px;background:#fff;border:1px solid var(--border);border-radius:8px}
-			.qr img{width:200px;height:200px}
-			.codes{background:var(--warning-soft);border:1px solid oklch(0.85 0.09 80);border-radius:8px;padding:12px;margin:12px 0}
-			.codes-title{display:flex;align-items:center;gap:6px;font-weight:600;font-size:13px;color:var(--warning);margin-bottom:8px}
-			.codes ul{list-style:none;columns:2;gap:4px;font-family:'SF Mono',Menlo,monospace;font-size:12px;color:var(--fg)}
-			.codes li{padding:2px 0}
-			.nav{text-align:center;font-size:13px;color:var(--fg-muted);margin-top:18px;font-weight:400}
-			.nav a{color:var(--accent);font-weight:600;text-decoration:none}
-			.step-box{display:none}
-			.step-box.active{display:block}
-			@media (max-width:760px){body{align-items:flex-start;padding-top:24px}.card{box-shadow:none}}
-		</style>
-	</head>
-	<body>
-		<main class="card">
-			<div class="brand">
-				<span class="brand-icon"><i class="bi bi-clipboard2-data"></i></span>
-				<span style="font-weight:600">카페 모니터</span>
-			</div>
-			<div class="steps">
-				<div class="step active" id="s1"></div>
-				<div class="step" id="s2"></div>
-				<div class="step" id="s3"></div>
-			</div>
-			<div id="err" class="err"></div>
+  <head>
+    <BaseHead title="회원가입 · 카페 모니터" description="관리자 계정 가입" />
+  </head>
+  <body class="mf-admin auth">
+    <main class="auth__shell">
+      <section class="auth__card" aria-labelledby="signup-title">
+        <header class="auth__brand">
+          <div class="auth__logo" aria-hidden="true">NC</div>
+          <div class="auth__brand-text">
+            <div class="auth__brand-title">Naver Cafe Monitor</div>
+            <div class="auth__brand-sub">Admin</div>
+          </div>
+        </header>
 
-			<!-- Step 1 -->
-			<section id="step-1" class="step-box active">
-				<h1>계정 만들기</h1>
-				<p class="sub">이메일·이름·비밀번호를 입력하세요.</p>
-				<label>이메일</label>
-				<input id="email" type="email" autocomplete="email" />
-				<label>이름</label>
-				<input id="name" type="text" maxlength="100" autocomplete="name" />
-				<label>비밀번호</label>
-				<input id="pw" type="password" autocomplete="new-password" />
-				<p class="hint">최소 10자, 영문·숫자·특수문자 포함</p>
-				<button id="next1" class="btn">다음</button>
-				<p class="nav">이미 계정이 있나요? <a href="/login">로그인</a></p>
-			</section>
+        <ol class="stepper" aria-label="가입 진행 단계">
+          <li class="stepper__item is-active" data-step="1">
+            <span class="stepper__num">1</span>
+            <span class="stepper__label">계정</span>
+          </li>
+          <li class="stepper__line" aria-hidden="true"></li>
+          <li class="stepper__item" data-step="2">
+            <span class="stepper__num">2</span>
+            <span class="stepper__label">QR</span>
+          </li>
+          <li class="stepper__line" aria-hidden="true"></li>
+          <li class="stepper__item" data-step="3">
+            <span class="stepper__num">3</span>
+            <span class="stepper__label">확인</span>
+          </li>
+        </ol>
 
-			<!-- Step 2 -->
-			<section id="step-2" class="step-box">
-				<h1>2단계 인증 설정</h1>
-				<p class="sub">Google Authenticator 등으로 QR을 스캔하세요.</p>
-				<div class="qr"><img id="qr-img" alt="TOTP QR" /></div>
-				<div class="codes">
-					<div class="codes-title"><i class="bi bi-shield-lock"></i> 백업 코드 (안전한 곳에 보관)</div>
-					<ul id="codes"></ul>
-				</div>
-				<button id="next2" class="btn">QR 스캔 완료, 다음</button>
-			</section>
+        <div id="err" class="alert alert--danger" role="alert" hidden></div>
 
-			<!-- Step 3 -->
-			<section id="step-3" class="step-box">
-				<h1>인증 코드 확인</h1>
-				<p class="sub">앱에 표시된 6자리 코드를 입력해 가입을 마무리하세요.</p>
-				<label>인증 코드</label>
-				<input id="totp" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" />
-				<button id="confirm" class="btn">회원가입 완료</button>
-			</section>
-		</main>
+        <!-- Step 1 -->
+        <section id="step-1" class="step-box is-active">
+          <h1 id="signup-title" class="auth__title">계정 만들기</h1>
+          <p class="auth__sub">이메일·이름·비밀번호를 입력하세요.</p>
+          <div class="auth__fields">
+            <div class="auth__field">
+              <label for="email">이메일</label>
+              <Input id="email" type="email" autocomplete="email" />
+            </div>
+            <div class="auth__field">
+              <label for="name">이름</label>
+              <Input id="name" type="text" maxlength={100} autocomplete="name" />
+            </div>
+            <div class="auth__field">
+              <label for="pw">비밀번호</label>
+              <Input id="pw" type="password" autocomplete="new-password" />
+              <p class="auth__hint">최소 10자, 영문·숫자·특수문자 포함</p>
+            </div>
+          </div>
+          <div class="auth__submit">
+            <Button id="next1" type="button" variant="primary" size="lg">다음</Button>
+          </div>
+          <p class="auth__foot">
+            이미 계정이 있나요? <a href="/login">로그인</a>
+          </p>
+        </section>
 
-		<script>
-			import { fetchPublicKey, encryptField } from '../lib/auth-client';
-			import { otpauthToDataUrl } from '../lib/qr';
+        <!-- Step 2 -->
+        <section id="step-2" class="step-box">
+          <h1 class="auth__title">2단계 인증 설정</h1>
+          <p class="auth__sub">Google Authenticator 등으로 QR을 스캔하세요.</p>
+          <div class="card-inner auth__qr">
+            <img id="qr-img" alt="TOTP QR" />
+          </div>
+          <div class="card-inner auth__codes">
+            <div class="auth__codes-title">백업 코드 (안전한 곳에 보관)</div>
+            <ul id="codes"></ul>
+          </div>
+          <div class="auth__submit">
+            <Button id="next2" type="button" variant="primary" size="lg">
+              QR 스캔 완료, 다음
+            </Button>
+          </div>
+        </section>
 
-			const errBox = document.getElementById('err') as HTMLDivElement;
-			const boxes = [1, 2, 3].map((i) => document.getElementById('step-' + i) as HTMLElement);
-			const stepsBar = [1, 2, 3].map((i) => document.getElementById('s' + i) as HTMLElement);
+        <!-- Step 3 -->
+        <section id="step-3" class="step-box">
+          <h1 class="auth__title">인증 코드 확인</h1>
+          <p class="auth__sub">앱에 표시된 6자리 코드를 입력해 가입을 마무리하세요.</p>
+          <div class="auth__fields">
+            <div class="auth__field">
+              <label for="totp">인증 코드</label>
+              <Input
+                id="totp"
+                type="text"
+                inputmode="numeric"
+                maxlength={6}
+                autocomplete="one-time-code"
+              />
+            </div>
+          </div>
+          <div class="auth__submit">
+            <Button id="confirm" type="button" variant="primary" size="lg">
+              회원가입 완료
+            </Button>
+          </div>
+        </section>
+      </section>
+    </main>
 
-			function go(n: number) {
-				boxes.forEach((b, i) => b.classList.toggle('active', i === n - 1));
-				stepsBar.forEach((b, i) => b.classList.toggle('active', i <= n - 1));
-				clearErr();
-			}
-			function showErr(msg: string) {
-				errBox.textContent = msg;
-				errBox.classList.add('show');
-			}
-			function clearErr() {
-				errBox.classList.remove('show');
-				errBox.textContent = '';
-			}
+    <style>
+      body.auth {
+        background: var(--bg-soft);
+        min-height: 100dvh;
+        margin: 0;
+      }
+      .auth__shell {
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 16px;
+      }
+      .auth__card {
+        width: 100%;
+        max-width: 400px;
+        background: var(--bg-elev);
+        border: 1px solid var(--border);
+        border-radius: var(--r-8);
+        box-shadow: var(--shadow-md);
+        padding: 32px;
+      }
+      .auth__brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .auth__logo {
+        width: 22px;
+        height: 22px;
+        border-radius: var(--r-4);
+        background: var(--fg);
+        color: var(--bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        font-family: var(--font-mono);
+        flex-shrink: 0;
+      }
+      .auth__brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+      .auth__brand-title { font-size: var(--fs-13); font-weight: 600; color: var(--fg); }
+      .auth__brand-sub { font-size: var(--fs-11); color: var(--fg-faint); }
 
-			const ERR: Record<string, string> = {
-				email_invalid: '올바른 이메일 형식이 아닙니다.',
-				name_invalid: '이름을 확인해주세요.',
-				email_exists: '이미 가입된 이메일입니다.',
-				password_too_short: '비밀번호는 최소 10자 이상이어야 합니다.',
-				password_needs_letter: '비밀번호에 영문을 포함하세요.',
-				password_needs_digit: '비밀번호에 숫자를 포함하세요.',
-				password_needs_symbol: '비밀번호에 특수문자를 포함하세요.',
-				pending_invalid: '가입 세션이 만료됐습니다. 처음부터 다시 시도하세요.',
-				totp_invalid: '인증 코드가 올바르지 않습니다.',
-				already_confirmed: '이미 인증이 완료된 계정입니다.',
-			};
+      .stepper {
+        list-style: none;
+        margin: 0 0 20px 0;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .stepper__item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+      .stepper__num {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg-soft);
+        border: 1px solid var(--border);
+        color: var(--fg-muted);
+        font-size: var(--fs-11);
+        font-weight: 600;
+      }
+      .stepper__label {
+        font-size: var(--fs-12);
+        color: var(--fg-muted);
+        font-weight: 500;
+      }
+      .stepper__item.is-active .stepper__num {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+      .stepper__item.is-active .stepper__label {
+        color: var(--fg);
+        font-weight: 600;
+      }
+      .stepper__line {
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+        list-style: none;
+      }
 
-			let pendingToken = '';
-			let cachedKey: CryptoKey | null = null;
-			async function getKey() {
-				if (!cachedKey) cachedKey = await fetchPublicKey();
-				return cachedKey;
-			}
+      .auth__title {
+        font-size: var(--fs-18);
+        font-weight: 600;
+        color: var(--fg);
+        margin: 0 0 4px 0;
+        letter-spacing: -0.01em;
+      }
+      .auth__sub {
+        font-size: var(--fs-13);
+        color: var(--fg-muted);
+        margin: 0 0 16px 0;
+      }
+      .auth__fields { display: flex; flex-direction: column; gap: 12px; }
+      .auth__field { display: flex; flex-direction: column; gap: 4px; }
+      .auth__field label {
+        font-size: var(--fs-12);
+        font-weight: 500;
+        color: var(--fg-muted);
+      }
+      .auth__hint {
+        font-size: var(--fs-12);
+        color: var(--fg-faint);
+        margin: 4px 0 0 0;
+      }
+      .auth__submit { margin-top: 16px; display: flex; flex-direction: column; }
+      .auth__submit :global(.btn) { width: 100%; justify-content: center; }
+      .auth__foot {
+        text-align: center;
+        font-size: var(--fs-13);
+        color: var(--fg-muted);
+        margin: 18px 0 0 0;
+      }
+      .auth__foot a {
+        color: var(--accent-fg);
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .auth__foot a:hover { text-decoration: underline; }
 
-			(document.getElementById('next1') as HTMLButtonElement).addEventListener('click', async (e) => {
-				e.preventDefault();
-				clearErr();
-				const email = (document.getElementById('email') as HTMLInputElement).value.trim();
-				const name = (document.getElementById('name') as HTMLInputElement).value.trim();
-				const pw = (document.getElementById('pw') as HTMLInputElement).value;
-				if (!email || !name || !pw) {
-					showErr('모든 필드를 입력하세요.');
-					return;
-				}
-				try {
-					const pub = await getKey();
-					const r = await fetch('/api/auth/signup', {
-						method: 'POST',
-						headers: { 'content-type': 'application/json' },
-						credentials: 'include',
-						body: JSON.stringify({
-							email_enc: await encryptField(pub, email),
-							name_enc: await encryptField(pub, name),
-							password_enc: await encryptField(pub, pw),
-						}),
-					});
-					if (!r.ok) {
-						const d = await r.json().catch(() => ({}));
-						showErr(ERR[d.detail] || '가입 실패 (' + d.detail + ')');
-						return;
-					}
-					const data = await r.json();
-					pendingToken = data.pending_token;
-					const qrImg = document.getElementById('qr-img') as HTMLImageElement;
-					qrImg.src = await otpauthToDataUrl(data.otpauth_url);
-					const ul = document.getElementById('codes') as HTMLUListElement;
-					ul.innerHTML = '';
-					for (const c of data.backup_codes) {
-						const li = document.createElement('li');
-						li.textContent = c;
-						ul.appendChild(li);
-					}
-					go(2);
-				} catch (err) {
-					console.error(err);
-					showErr('네트워크 오류');
-				}
-			});
+      .card-inner {
+        background: var(--bg-elev);
+        border: 1px solid var(--border);
+        border-radius: var(--r-6);
+        padding: 16px;
+        margin-top: 12px;
+      }
+      .auth__qr {
+        display: flex;
+        justify-content: center;
+        background: #fff;
+      }
+      .auth__qr img { width: 200px; height: 200px; display: block; }
+      .auth__codes {
+        background: var(--warning-soft);
+        border-color: var(--warning-border);
+      }
+      .auth__codes-title {
+        font-size: var(--fs-12);
+        font-weight: 600;
+        color: var(--warning);
+        margin-bottom: 8px;
+      }
+      .auth__codes ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        columns: 2;
+        column-gap: 8px;
+        font-family: var(--font-mono);
+        font-size: var(--fs-12);
+        color: var(--fg);
+      }
+      .auth__codes li { padding: 2px 0; }
 
-			(document.getElementById('next2') as HTMLButtonElement).addEventListener('click', () => go(3));
+      .step-box { display: none; }
+      .step-box.is-active { display: block; }
 
-			(document.getElementById('confirm') as HTMLButtonElement).addEventListener('click', async (e) => {
-				e.preventDefault();
-				clearErr();
-				const code = (document.getElementById('totp') as HTMLInputElement).value.trim();
-				if (code.length < 6) {
-					showErr('6자리 코드를 입력하세요.');
-					return;
-				}
-				const r = await fetch('/api/auth/signup/confirm', {
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					credentials: 'include',
-					body: JSON.stringify({ pending_token: pendingToken, totp_code: code }),
-				});
-				if (!r.ok) {
-					const d = await r.json().catch(() => ({}));
-					showErr(ERR[d.detail] || '실패 (' + d.detail + ')');
-					return;
-				}
-				window.location.assign('/');
-			});
-		</script>
-	</body>
+      .alert {
+        padding: 10px 12px;
+        border-radius: var(--r-6);
+        font-size: var(--fs-13);
+        border: 1px solid transparent;
+        margin-bottom: 12px;
+      }
+      .alert--danger {
+        background: var(--danger-soft);
+        color: var(--danger);
+        border-color: var(--danger-border);
+      }
+      @media (max-width: 480px) {
+        .auth__card { padding: 24px; box-shadow: none; }
+        .stepper__label { display: none; }
+      }
+    </style>
+
+    <script>
+      import { fetchPublicKey, encryptField } from '../lib/auth-client';
+      import { otpauthToDataUrl } from '../lib/qr';
+
+      const errBox = document.getElementById('err') as HTMLDivElement;
+      const boxes = [1, 2, 3].map((i) => document.getElementById('step-' + i) as HTMLElement);
+      const stepItems = document.querySelectorAll<HTMLElement>('.stepper__item');
+
+      function go(n: number) {
+        boxes.forEach((b, i) => b.classList.toggle('is-active', i === n - 1));
+        stepItems.forEach((el) => {
+          const s = Number(el.dataset.step || '0');
+          el.classList.toggle('is-active', s <= n);
+        });
+        clearErr();
+      }
+      function showErr(msg: string) {
+        errBox.textContent = msg;
+        errBox.hidden = false;
+      }
+      function clearErr() {
+        errBox.hidden = true;
+        errBox.textContent = '';
+      }
+
+      const ERR: Record<string, string> = {
+        email_invalid: '올바른 이메일 형식이 아닙니다.',
+        name_invalid: '이름을 확인해주세요.',
+        email_exists: '이미 가입된 이메일입니다.',
+        password_too_short: '비밀번호는 최소 10자 이상이어야 합니다.',
+        password_needs_letter: '비밀번호에 영문을 포함하세요.',
+        password_needs_digit: '비밀번호에 숫자를 포함하세요.',
+        password_needs_symbol: '비밀번호에 특수문자를 포함하세요.',
+        pending_invalid: '가입 세션이 만료됐습니다. 처음부터 다시 시도하세요.',
+        totp_invalid: '인증 코드가 올바르지 않습니다.',
+        already_confirmed: '이미 인증이 완료된 계정입니다.',
+      };
+
+      let pendingToken = '';
+      let cachedKey: CryptoKey | null = null;
+      async function getKey() {
+        if (!cachedKey) cachedKey = await fetchPublicKey();
+        return cachedKey;
+      }
+
+      (document.getElementById('next1') as HTMLButtonElement).addEventListener('click', async (e) => {
+        e.preventDefault();
+        clearErr();
+        const email = (document.getElementById('email') as HTMLInputElement).value.trim();
+        const name = (document.getElementById('name') as HTMLInputElement).value.trim();
+        const pw = (document.getElementById('pw') as HTMLInputElement).value;
+        if (!email || !name || !pw) {
+          showErr('모든 필드를 입력하세요.');
+          return;
+        }
+        try {
+          const pub = await getKey();
+          const r = await fetch('/api/auth/signup', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              email_enc: await encryptField(pub, email),
+              name_enc: await encryptField(pub, name),
+              password_enc: await encryptField(pub, pw),
+            }),
+          });
+          if (!r.ok) {
+            const d = await r.json().catch(() => ({}));
+            showErr(ERR[d.detail] || '가입 실패 (' + d.detail + ')');
+            return;
+          }
+          const data = await r.json();
+          pendingToken = data.pending_token;
+          const qrImg = document.getElementById('qr-img') as HTMLImageElement;
+          qrImg.src = await otpauthToDataUrl(data.otpauth_url);
+          const ul = document.getElementById('codes') as HTMLUListElement;
+          ul.innerHTML = '';
+          for (const c of data.backup_codes) {
+            const li = document.createElement('li');
+            li.textContent = c;
+            ul.appendChild(li);
+          }
+          go(2);
+        } catch (err) {
+          console.error(err);
+          showErr('네트워크 오류');
+        }
+      });
+
+      (document.getElementById('next2') as HTMLButtonElement).addEventListener('click', () => go(3));
+
+      (document.getElementById('confirm') as HTMLButtonElement).addEventListener('click', async (e) => {
+        e.preventDefault();
+        clearErr();
+        const code = (document.getElementById('totp') as HTMLInputElement).value.trim();
+        if (code.length < 6) {
+          showErr('6자리 코드를 입력하세요.');
+          return;
+        }
+        const r = await fetch('/api/auth/signup/confirm', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ pending_token: pendingToken, totp_code: code }),
+        });
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}));
+          showErr(ERR[d.detail] || '실패 (' + d.detail + ')');
+          return;
+        }
+        window.location.assign('/admin');
+      });
+    </script>
+  </body>
 </html>

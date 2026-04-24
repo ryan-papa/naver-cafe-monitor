@@ -1,0 +1,425 @@
+---
+/**
+ * /admin/posts/[id] — 게시물 상세.
+ * SSR fetch. 404 시 /admin/posts 로 리다이렉트.
+ * 재발송: island 모듈 resend-cooldown.ts (30초 쿨다운 localStorage 기반).
+ */
+import AppShell from "../../../components/admin/AppShell.astro";
+import PageHeader from "../../../components/primitives/PageHeader.astro";
+import Button from "../../../components/primitives/Button.astro";
+import Pill from "../../../components/primitives/Pill.astro";
+import Icon from "../../../components/primitives/Icon.astro";
+
+const API_BASE =
+  import.meta.env.INTERNAL_API_BASE || process.env.INTERNAL_API_BASE || "http://127.0.0.1:8000";
+const cookie = Astro.request.headers.get("cookie") ?? "";
+const { id } = Astro.params;
+const recordId = id ?? "";
+
+if (!recordId || !/^\d+$/.test(recordId)) {
+  return Astro.redirect("/admin/posts", 302);
+}
+
+type PostDetail = {
+  id: number;
+  board_id: string;
+  post_id: number | string;
+  title: string | null;
+  summary: string | null;
+  status: "SUCCESS" | "FAIL" | string;
+  image_count?: number | null;
+  reg_ts?: string | null;
+  post_date?: string | null;
+  kakao_messages?: string[];
+  post_url?: string;
+};
+
+async function fetchDetail(): Promise<PostDetail | null | "notfound"> {
+  try {
+    const res = await fetch(`${API_BASE}/api/posts/${recordId}`, {
+      headers: cookie ? { cookie } : {},
+    });
+    if (res.status === 404) return "notfound";
+    if (!res.ok) return null;
+    return (await res.json()) as PostDetail;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchMe(): Promise<{ email?: string } | null> {
+  try {
+    const r = await fetch(`${API_BASE}/api/auth/me`, { headers: cookie ? { cookie } : {} });
+    if (!r.ok) return null;
+    return (await r.json()) as { email?: string };
+  } catch {
+    return null;
+  }
+}
+
+const [detail, me] = await Promise.all([fetchDetail(), fetchMe()]);
+
+if (detail === "notfound") {
+  return Astro.redirect("/admin/posts", 302);
+}
+
+function boardLabel(id: string): string {
+  if (id === "menus/6") return "공지사항";
+  if (id === "menus/13") return "사진";
+  return id;
+}
+
+function fmtDate(s: string | null | undefined): string {
+  if (!s) return "-";
+  return s.replace("T", " ").slice(0, 16);
+}
+
+/**
+ * 카톡 메시지에서 `[일정 정리]` 블록을 분리해 렌더링 friendly 한 구조로 변환.
+ */
+function splitKakaoBlocks(msg: string): { label: string | null; body: string }[] {
+  if (!msg) return [];
+  const idx = msg.indexOf("[일정 정리]");
+  if (idx < 0) return [{ label: null, body: msg }];
+  const before = msg.slice(0, idx).trim();
+  const after = msg.slice(idx).trim();
+  const blocks: { label: string | null; body: string }[] = [];
+  if (before) blocks.push({ label: null, body: before });
+  blocks.push({ label: "일정 정리", body: after.replace(/^\[일정 정리\]\s*/, "").trim() });
+  return blocks;
+}
+
+const title = detail?.title ?? "제목없음";
+const isFail = detail?.status !== "SUCCESS";
+const kakaoMessages = Array.isArray(detail?.kakao_messages) ? detail!.kakao_messages : [];
+const canResend = detail?.status === "SUCCESS" && kakaoMessages.length > 0;
+---
+
+<AppShell
+  title={`${title} · 게시물 상세`}
+  description="게시물 상세 정보와 카카오톡 재발송"
+  email={me?.email}
+  activeRoute="/admin/posts"
+>
+  <PageHeader title="게시물 상세">
+    <a slot="actions" href="/admin/posts" class="back-link">
+      <Icon name="chevL" size={12} /> 목록
+    </a>
+  </PageHeader>
+
+  {!detail ? (
+    <div class="error-banner" role="alert">
+      <Icon name="alert" size={14} />
+      <span>게시물 정보를 불러오지 못했어요.</span>
+    </div>
+  ) : (
+    <div class="detail">
+      <section class="card">
+        <header class="card__head">
+          <Pill tone={detail.board_id === "menus/6" ? "warning" : "info"} size="md">
+            {boardLabel(detail.board_id)}
+          </Pill>
+          {isFail ? (
+            <Pill tone="danger" size="md">실패</Pill>
+          ) : (
+            <Pill tone="success" size="md">성공</Pill>
+          )}
+        </header>
+        <h2 class="card__title">{title}</h2>
+
+        <dl class="meta-grid">
+          <div class="meta-grid__row">
+            <dt>번호</dt>
+            <dd class="mono">{String(detail.post_id)}</dd>
+          </div>
+          <div class="meta-grid__row">
+            <dt>게시일</dt>
+            <dd class="mono">{fmtDate(detail.post_date)}</dd>
+          </div>
+          <div class="meta-grid__row">
+            <dt>처리일시</dt>
+            <dd class="mono">{fmtDate(detail.reg_ts)}</dd>
+          </div>
+          {typeof detail.image_count === "number" && detail.image_count > 0 && (
+            <div class="meta-grid__row">
+              <dt>이미지</dt>
+              <dd class="mono">{detail.image_count}장</dd>
+            </div>
+          )}
+          {detail.post_url && (
+            <div class="meta-grid__row">
+              <dt>원본</dt>
+              <dd>
+                <a href={detail.post_url} target="_blank" rel="noopener noreferrer" class="ext-link">
+                  카페에서 보기 <Icon name="external" size={12} />
+                </a>
+              </dd>
+            </div>
+          )}
+        </dl>
+
+        <section class="section">
+          <h3 class="section__title">본문 요약</h3>
+          {detail.summary ? (
+            <div class="section__body">{detail.summary}</div>
+          ) : (
+            <div class="section__empty">요약 내용이 없어요.</div>
+          )}
+        </section>
+      </section>
+
+      <section class="card">
+        <header class="card__head">
+          <h3 class="card__subtitle">카카오톡 전송 내용</h3>
+        </header>
+        {kakaoMessages.length === 0 ? (
+          <div class="section__empty">전송할 내용이 없어요.</div>
+        ) : (
+          <div class="kakao-list">
+            {kakaoMessages.map((m) => {
+              const blocks = splitKakaoBlocks(m);
+              return (
+                <article class="kakao-item">
+                  {blocks.map((b) => (
+                    <div class="kakao-block">
+                      {b.label && <div class="kakao-block__label">[{b.label}]</div>}
+                      <pre class="kakao-block__body">{b.body}</pre>
+                    </div>
+                  ))}
+                </article>
+              );
+            })}
+          </div>
+        )}
+
+        <footer class="card__foot">
+          <span class="resend-hint">{canResend ? "30초 쿨다운이 적용돼요." : "재발송 불가: 성공 상태의 게시물만 가능합니다."}</span>
+          <Button
+            id="btn-resend"
+            variant="primary"
+            size="md"
+            icon="save"
+            disabled={!canResend}
+            data-post-id={String(detail.id)}
+            data-label="재발송"
+          >
+            재발송
+          </Button>
+        </footer>
+      </section>
+    </div>
+  )}
+</AppShell>
+
+<div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+<script>
+  import { initResendCooldown } from "../../../islands/resend-cooldown";
+  const btn = document.getElementById("btn-resend") as HTMLButtonElement | null;
+  if (btn && !btn.disabled) {
+    const pid = btn.dataset.postId;
+    if (pid) initResendCooldown(pid, btn, "");
+  }
+</script>
+
+<style>
+  .error-banner {
+    margin: 12px 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--danger-soft);
+    color: var(--danger);
+    border: 1px solid var(--danger-border);
+    border-radius: var(--r-6);
+    font-size: var(--fs-13);
+  }
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--fs-12);
+    color: var(--fg-muted);
+    text-decoration: none;
+    padding: 4px 8px;
+    border-radius: var(--r-4);
+  }
+  .back-link:hover {
+    background: var(--bg-hover);
+    color: var(--fg);
+  }
+  .detail {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 820px;
+  }
+  .card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--r-6);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .card__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card__title {
+    font-size: var(--fs-16);
+    font-weight: 600;
+    color: var(--fg);
+    margin: 0;
+    letter-spacing: -0.01em;
+    line-height: 1.4;
+  }
+  .card__subtitle {
+    font-size: var(--fs-13);
+    font-weight: 600;
+    color: var(--fg);
+    margin: 0;
+  }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 16px;
+    margin: 0;
+    font-size: var(--fs-12);
+  }
+  .meta-grid__row {
+    display: flex;
+    gap: 8px;
+  }
+  .meta-grid__row dt {
+    color: var(--fg-faint);
+    min-width: 56px;
+  }
+  .meta-grid__row dd {
+    margin: 0;
+    color: var(--fg);
+  }
+  .meta-grid .mono {
+    font-variant-numeric: tabular-nums;
+  }
+  .ext-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .ext-link:hover {
+    text-decoration: underline;
+  }
+  .section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .section__title {
+    font-size: var(--fs-11);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--fg-faint);
+    text-transform: uppercase;
+    margin: 0;
+  }
+  .section__body {
+    font-size: var(--fs-13);
+    line-height: 1.6;
+    color: var(--fg);
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding: 10px 12px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--r-4);
+  }
+  .section__empty {
+    font-size: var(--fs-12);
+    color: var(--fg-faint);
+    font-style: italic;
+    padding: 10px 0;
+  }
+  .card__foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 4px;
+    border-top: 1px solid var(--divider);
+    margin-top: 4px;
+    padding-top: 12px;
+  }
+  .resend-hint {
+    font-size: var(--fs-11);
+    color: var(--fg-faint);
+    margin-right: auto;
+  }
+  .kakao-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .kakao-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .kakao-block {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--r-4);
+    padding: 10px 12px;
+  }
+  .kakao-block__label {
+    font-size: var(--fs-11);
+    font-weight: 600;
+    color: var(--accent-fg);
+    margin-bottom: 4px;
+  }
+  .kakao-block__body {
+    font-family: inherit;
+    font-size: var(--fs-13);
+    line-height: 1.6;
+    color: var(--fg);
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+  }
+  .toast-container {
+    position: fixed;
+    top: 64px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+  }
+  .toast-container :global(.toast-msg) {
+    padding: 10px 16px;
+    border-radius: var(--r-6);
+    font-size: var(--fs-13);
+    font-weight: 500;
+    background: var(--bg-elev);
+    color: var(--fg);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border);
+    pointer-events: auto;
+    transition: opacity 0.3s ease;
+  }
+  .toast-container :global(.toast-ok) {
+    border-color: var(--success-border);
+    color: var(--success);
+  }
+  .toast-container :global(.toast-err) {
+    border-color: var(--danger-border);
+    color: var(--danger);
+  }
+</style>

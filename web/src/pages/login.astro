@@ -1,177 +1,255 @@
 ---
-const next = Astro.url.searchParams.get('next') || '/';
+/**
+ * /login — 관리자 로그인.
+ * museum-finder 토큰 기반 카드 리디자인. 폼 로직·API·에러처리는 기존과 동일.
+ */
+import BaseHead from "../components/BaseHead.astro";
+import Button from "../components/primitives/Button.astro";
+import Input from "../components/primitives/Input.astro";
+import "../styles/tokens.css";
+import "../styles/globals.css";
 ---
 
 <html lang="ko">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>로그인 · 카페 모니터</title>
-		<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-		<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard-dynamic-subset.min.css" rel="stylesheet" />
-		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" />
-		<style>
-			:root {
-				--bg: #fafaf7;
-				--bg-soft: #f3f2ee;
-				--bg-elev: #ffffff;
-				--bg-hover: #f1efea;
-				--border: #e5e3dc;
-				--border-strong: #cdc9bf;
-				--fg: #0f0f10;
-				--fg-muted: #5b5a55;
-				--fg-faint: #6e6b63;
-				--accent: oklch(0.52 0.11 255);
-				--accent-hover: oklch(0.46 0.12 255);
-				--accent-soft: oklch(0.94 0.03 255);
-				--danger: oklch(0.48 0.18 25);
-				--danger-soft: oklch(0.95 0.04 25);
-				--shadow: 0 12px 32px rgba(15,15,16,0.08), 0 0 0 1px rgba(15,15,16,0.04);
-			}
-			*{box-sizing:border-box;margin:0;padding:0}
-			body{font-family:'Pretendard Variable',Pretendard,-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--fg);min-height:100vh;font-size:13px;line-height:1.45}
-			.auth-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 16px}
-			.logo-mark{width:22px;height:22px;border-radius:4px;background:var(--fg);color:var(--bg);display:inline-flex;align-items:center;justify-content:center;font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace}
-			.logo-title{font-size:13px;font-weight:600;line-height:1.15}.logo-sub{font-size:11px;color:var(--fg-faint);line-height:1.15;font-weight:400}
-			.auth-main{width:100%;max-width:400px}
-			.card{background:var(--bg-elev);border:1px solid var(--border);border-radius:8px;padding:28px;box-shadow:var(--shadow);max-width:400px;width:100%}
-			.brand{display:flex;align-items:center;gap:8px;margin-bottom:22px}
-			.brand-icon{width:28px;height:28px;border-radius:4px;background:var(--fg);color:var(--bg);display:flex;align-items:center;justify-content:center;font-size:0.95rem}
-			.brand span:last-child{font-size:13px;font-weight:600}
-			h1{font-size:20px;font-weight:700;letter-spacing:0;margin-bottom:4px}
-			.sub{font-size:13px;color:var(--fg-muted);margin-bottom:24px;font-weight:400}
-			label{display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--fg-muted)}
-			input{width:100%;height:38px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:inherit;background:#fff;transition:border-color 0.15s,box-shadow 0.15s;margin-bottom:12px;color:var(--fg)}
-			input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-			.btn{width:100%;height:38px;padding:0 12px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;background:var(--accent);color:#fff;transition:background 0.15s}
-			.btn:hover{background:var(--accent-hover)}
-			.btn:disabled{opacity:0.5;cursor:not-allowed}
-			.err{background:var(--danger-soft);color:var(--danger);border:1px solid oklch(0.85 0.09 25);border-radius:6px;padding:10px 12px;font-size:13px;margin-bottom:14px;display:none}
-			.err.show{display:block}
-			.signup-link{text-align:center;font-size:13px;color:var(--fg-muted);margin-top:18px;font-weight:400}
-			.signup-link a{color:var(--accent);font-weight:700;text-decoration:none}
-			.totp-wrap{display:none}
-			.totp-wrap.show{display:block}
-			.hint{font-size:12px;color:var(--fg-muted);margin-top:-6px;margin-bottom:12px}
-			@media (max-width: 760px){
-				.auth-shell{align-items:flex-start;padding-top:24px}
-				.card{box-shadow:none}
-			}
-		</style>
-	</head>
-	<body>
-		<div class="auth-shell">
-			<main class="auth-main">
-				<section class="card">
-					<div class="brand">
-						<span class="brand-icon"><i class="bi bi-box-arrow-in-right"></i></span>
-						<span>관리자 로그인</span>
-					</div>
-					<h1>로그인</h1>
-					<p class="sub">이메일과 비밀번호를 입력하세요.</p>
+  <head>
+    <BaseHead title="로그인 · 카페 모니터" description="관리자 로그인" />
+  </head>
+  <body class="mf-admin auth">
+    <main class="auth__shell">
+      <section class="auth__card" aria-labelledby="login-title">
+        <header class="auth__brand">
+          <div class="auth__logo" aria-hidden="true">NC</div>
+          <div class="auth__brand-text">
+            <div class="auth__brand-title">Naver Cafe Monitor</div>
+            <div class="auth__brand-sub">Admin</div>
+          </div>
+        </header>
 
-					<div id="err" class="err"></div>
+        <h1 id="login-title" class="auth__title">로그인</h1>
+        <p class="auth__sub">이메일과 비밀번호를 입력하세요.</p>
 
-					<form id="login-form" novalidate>
-						<div id="creds-step">
-							<label for="email">이메일</label>
-							<input id="email" type="email" required autocomplete="email" />
-							<label for="password">비밀번호</label>
-							<input id="password" type="password" required autocomplete="current-password" />
-						</div>
+        <div id="err" class="alert alert--danger" role="alert" hidden></div>
 
-						<div id="totp-step" class="totp-wrap">
-							<label for="totp">인증 앱 코드</label>
-							<input id="totp" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" />
-							<p class="hint">Google Authenticator 등에 표시된 6자리 코드를 입력하세요.</p>
-						</div>
+        <form id="login-form" novalidate>
+          <div id="creds-step" class="auth__fields">
+            <div class="auth__field">
+              <label for="email">이메일</label>
+              <Input id="email" type="email" required autocomplete="email" />
+            </div>
+            <div class="auth__field">
+              <label for="password">비밀번호</label>
+              <Input id="password" type="password" required autocomplete="current-password" />
+            </div>
+          </div>
 
-						<button id="submit" class="btn" type="submit">로그인</button>
-					</form>
+          <div id="totp-step" class="auth__fields auth__fields--totp" hidden>
+            <div class="auth__field">
+              <label for="totp">인증 앱 코드</label>
+              <Input
+                id="totp"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                maxlength={6}
+                autocomplete="one-time-code"
+              />
+              <p class="auth__hint">Google Authenticator 등에 표시된 6자리 코드를 입력하세요.</p>
+            </div>
+          </div>
 
-					<p class="signup-link">
-						계정이 없으신가요? <a href="/signup">회원가입</a>
-					</p>
-				</section>
-			</main>
-		</div>
+          <div class="auth__submit">
+            <Button id="submit" type="submit" variant="primary" size="lg">로그인</Button>
+          </div>
+        </form>
 
-		<script>
-			import { fetchPublicKey, encryptField } from '../lib/auth-client';
+        <p class="auth__foot">
+          계정이 없으신가요? <a href="/signup">회원가입</a>
+        </p>
+      </section>
+    </main>
 
-			const form = document.getElementById('login-form') as HTMLFormElement;
-			const errBox = document.getElementById('err') as HTMLDivElement;
-			const emailInput = document.getElementById('email') as HTMLInputElement;
-			const pwInput = document.getElementById('password') as HTMLInputElement;
-			const totpInput = document.getElementById('totp') as HTMLInputElement;
-			const totpStep = document.getElementById('totp-step') as HTMLDivElement;
-			const submitBtn = document.getElementById('submit') as HTMLButtonElement;
-			const next = new URL(window.location.href).searchParams.get('next') || '/';
+    <style>
+      body.auth {
+        background: var(--bg-soft);
+        min-height: 100dvh;
+        margin: 0;
+      }
+      .auth__shell {
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 16px;
+      }
+      .auth__card {
+        width: 100%;
+        max-width: 400px;
+        background: var(--bg-elev);
+        border: 1px solid var(--border);
+        border-radius: var(--r-8);
+        box-shadow: var(--shadow-md);
+        padding: 32px;
+      }
+      .auth__brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+      }
+      .auth__logo {
+        width: 22px;
+        height: 22px;
+        border-radius: var(--r-4);
+        background: var(--fg);
+        color: var(--bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        font-family: var(--font-mono);
+        flex-shrink: 0;
+      }
+      .auth__brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+      .auth__brand-title { font-size: var(--fs-13); font-weight: 600; color: var(--fg); }
+      .auth__brand-sub { font-size: var(--fs-11); color: var(--fg-faint); }
+      .auth__title {
+        font-size: var(--fs-18);
+        font-weight: 600;
+        color: var(--fg);
+        margin: 0 0 4px 0;
+        letter-spacing: -0.01em;
+      }
+      .auth__sub {
+        font-size: var(--fs-13);
+        color: var(--fg-muted);
+        margin: 0 0 20px 0;
+      }
+      .auth__fields {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .auth__fields--totp { margin-top: 12px; }
+      .auth__field { display: flex; flex-direction: column; gap: 4px; }
+      .auth__field label {
+        font-size: var(--fs-12);
+        font-weight: 500;
+        color: var(--fg-muted);
+      }
+      .auth__hint {
+        font-size: var(--fs-12);
+        color: var(--fg-faint);
+        margin: 4px 0 0 0;
+      }
+      .auth__submit { margin-top: 16px; display: flex; flex-direction: column; }
+      .auth__submit :global(.btn) { width: 100%; justify-content: center; }
+      .auth__foot {
+        text-align: center;
+        font-size: var(--fs-13);
+        color: var(--fg-muted);
+        margin: 18px 0 0 0;
+      }
+      .auth__foot a {
+        color: var(--accent-fg);
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .auth__foot a:hover { text-decoration: underline; }
+      .alert {
+        padding: 10px 12px;
+        border-radius: var(--r-6);
+        font-size: var(--fs-13);
+        border: 1px solid transparent;
+        margin-bottom: 12px;
+      }
+      .alert--danger {
+        background: var(--danger-soft);
+        color: var(--danger);
+        border-color: var(--danger-border);
+      }
+      @media (max-width: 480px) {
+        .auth__card { padding: 24px; box-shadow: none; }
+      }
+    </style>
 
-			let cachedKey: CryptoKey | null = null;
-			async function getKey() {
-				if (!cachedKey) cachedKey = await fetchPublicKey();
-				return cachedKey;
-			}
+    <script>
+      import { fetchPublicKey, encryptField } from '../lib/auth-client';
 
-			function showErr(msg: string) {
-				errBox.textContent = msg;
-				errBox.classList.add('show');
-			}
-			function clearErr() {
-				errBox.classList.remove('show');
-				errBox.textContent = '';
-			}
+      const form = document.getElementById('login-form') as HTMLFormElement;
+      const errBox = document.getElementById('err') as HTMLDivElement;
+      const emailInput = document.getElementById('email') as HTMLInputElement;
+      const pwInput = document.getElementById('password') as HTMLInputElement;
+      const totpInput = document.getElementById('totp') as HTMLInputElement;
+      const totpStep = document.getElementById('totp-step') as HTMLDivElement;
+      const submitBtn = document.getElementById('submit') as HTMLButtonElement;
+      const next = new URL(window.location.href).searchParams.get('next') || '/admin';
 
-			const ERROR_MSG: Record<string, string> = {
-				invalid_credentials: '이메일 또는 비밀번호가 올바르지 않습니다.',
-				account_locked: '로그인 실패가 반복되어 15분간 잠겼습니다. 잠시 후 다시 시도하세요.',
-				ip_rate_limited: '요청이 너무 많습니다. 15분 뒤 다시 시도하세요.',
-				account_rate_limited: '로그인 시도가 너무 많습니다. 15분 뒤 다시 시도하세요.',
-				totp_required: '2단계 인증 코드가 필요합니다.',
-				totp_invalid: '인증 코드가 올바르지 않습니다.',
-			};
+      let cachedKey: CryptoKey | null = null;
+      async function getKey() {
+        if (!cachedKey) cachedKey = await fetchPublicKey();
+        return cachedKey;
+      }
 
-			form.addEventListener('submit', async (e) => {
-				e.preventDefault();
-				clearErr();
-				submitBtn.disabled = true;
-				submitBtn.textContent = '처리 중…';
-				try {
-					const pub = await getKey();
-					const body: Record<string, string> = {
-						email_enc: await encryptField(pub, emailInput.value.trim()),
-						password_enc: await encryptField(pub, pwInput.value),
-					};
-					if (totpStep.classList.contains('show')) {
-						body.totp_code = totpInput.value.trim();
-					}
-					const r = await fetch('/api/auth/login', {
-						method: 'POST',
-						headers: { 'content-type': 'application/json' },
-						credentials: 'include',
-						body: JSON.stringify(body),
-					});
-					if (r.ok) {
-						window.location.assign(next);
-						return;
-					}
-					const data = await r.json().catch(() => ({}));
-					const code = data.detail || 'unknown';
-					if (code === 'totp_required' && !totpStep.classList.contains('show')) {
-						totpStep.classList.add('show');
-						totpInput.focus();
-						return;
-					}
-					showErr(ERROR_MSG[code] || '로그인에 실패했습니다. (' + code + ')');
-				} catch (err) {
-					console.error(err);
-					showErr('네트워크 오류가 발생했습니다.');
-				} finally {
-					submitBtn.disabled = false;
-					submitBtn.textContent = '로그인';
-				}
-			});
-		</script>
-	</body>
+      function showErr(msg: string) {
+        errBox.textContent = msg;
+        errBox.hidden = false;
+      }
+      function clearErr() {
+        errBox.hidden = true;
+        errBox.textContent = '';
+      }
+
+      const ERROR_MSG: Record<string, string> = {
+        invalid_credentials: '이메일 또는 비밀번호가 올바르지 않습니다.',
+        account_locked: '로그인 실패가 반복되어 15분간 잠겼습니다. 잠시 후 다시 시도하세요.',
+        ip_rate_limited: '요청이 너무 많습니다. 15분 뒤 다시 시도하세요.',
+        account_rate_limited: '로그인 시도가 너무 많습니다. 15분 뒤 다시 시도하세요.',
+        totp_required: '2단계 인증 코드가 필요합니다.',
+        totp_invalid: '인증 코드가 올바르지 않습니다.',
+      };
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearErr();
+        submitBtn.disabled = true;
+        submitBtn.textContent = '처리 중…';
+        try {
+          const pub = await getKey();
+          const body: Record<string, string> = {
+            email_enc: await encryptField(pub, emailInput.value.trim()),
+            password_enc: await encryptField(pub, pwInput.value),
+          };
+          if (!totpStep.hidden) {
+            body.totp_code = totpInput.value.trim();
+          }
+          const r = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(body),
+          });
+          if (r.ok) {
+            window.location.assign(next);
+            return;
+          }
+          const data = await r.json().catch(() => ({}));
+          const code = data.detail || 'unknown';
+          if (code === 'totp_required' && totpStep.hidden) {
+            totpStep.hidden = false;
+            totpInput.focus();
+            return;
+          }
+          showErr(ERROR_MSG[code] || '로그인에 실패했습니다. (' + code + ')');
+        } catch (err) {
+          console.error(err);
+          showErr('네트워크 오류가 발생했습니다.');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = '로그인';
+        }
+      });
+    </script>
+  </body>
 </html>
