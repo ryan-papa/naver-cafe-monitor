@@ -111,7 +111,7 @@ const me = await fetchMe();
           </Button>
         </div>
 
-        <div id="reset-result" class="tfa__result" hidden>
+        <div id="reset-result" class="tfa__result" hidden style="display:none">
           <h2 class="tfa__result-title">새 QR을 스캔하세요</h2>
           <div class="card-inner tfa__qr">
             <img id="reset-qr" alt="TOTP QR" />
@@ -321,8 +321,18 @@ const me = await fetchMe();
     second_factor_invalid: 'TOTP 또는 백업 코드를 확인해주세요.',
   };
 
-  async function setQr(img: HTMLImageElement, otpauth: string) {
-    img.src = await otpauthToDataUrl(otpauth);
+  async function setQr(img: HTMLImageElement, otpauth: string | undefined | null) {
+    if (!otpauth) {
+      console.error('[2fa] otpauth_url missing in response');
+      showErr('QR 생성 실패: 서버 응답이 비어 있습니다.');
+      return;
+    }
+    try {
+      img.src = await otpauthToDataUrl(otpauth);
+    } catch (e) {
+      console.error('[2fa] qr render failed', e);
+      showErr('QR 생성 실패');
+    }
   }
   function renderCodes(list: string[], ul: HTMLUListElement) {
     ul.innerHTML = '';
@@ -420,7 +430,9 @@ const me = await fetchMe();
       const data = await r.json();
       await setQr(document.getElementById('reset-qr') as HTMLImageElement, data.otpauth_url);
       renderCodes(data.backup_codes, document.getElementById('reset-codes') as HTMLUListElement);
-      (document.getElementById('reset-result') as HTMLElement).hidden = false;
+      const result = document.getElementById('reset-result') as HTMLElement;
+      result.hidden = false;
+      result.style.display = '';
     } catch (e) {
       console.error(e);
       closeModal('reset-confirm');
