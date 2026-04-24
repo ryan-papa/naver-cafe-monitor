@@ -9,6 +9,7 @@ import PageHeader from "../../../components/primitives/PageHeader.astro";
 import Button from "../../../components/primitives/Button.astro";
 import Pill from "../../../components/primitives/Pill.astro";
 import Icon from "../../../components/primitives/Icon.astro";
+import { collapseBlankLines } from "../../../lib/text";
 
 const API_BASE =
   import.meta.env.INTERNAL_API_BASE || process.env.INTERNAL_API_BASE || "http://127.0.0.1:8000";
@@ -161,7 +162,7 @@ const canResend = detail?.status === "SUCCESS" && kakaoMessages.length > 0;
         <section class="section">
           <h3 class="section__title">본문 요약</h3>
           {detail.summary ? (
-            <div class="section__body">{detail.summary}</div>
+            <div class="section__body">{collapseBlankLines(detail.summary)}</div>
           ) : (
             <div class="section__empty">요약 내용이 없어요.</div>
           )}
