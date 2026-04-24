@@ -83,8 +83,8 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 				font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
 			}
 			.logo-text { min-width: 0; }
-			.logo-title { font-size: 13px; font-weight: 700; line-height: 1.15; }
-			.logo-sub { font-size: 11px; color: #6e6b63; line-height: 1.15; }
+			.logo-title { font-size: 13px; font-weight: 600; line-height: 1.15; }
+			.logo-sub { font-size: 11px; color: #6e6b63; line-height: 1.15; font-weight: 400; }
 			.side-nav {
 				flex: 1;
 				overflow: auto;
@@ -97,7 +97,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 				color: #6e6b63;
 				text-transform: uppercase;
 				letter-spacing: 0.08em;
-				font-weight: 700;
+				font-weight: 600;
 			}
 			.nav-item {
 				display: flex;
@@ -107,7 +107,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 				border-radius: 4px;
 				color: #5b5a55;
 				font-size: 13px;
-				font-weight: 500;
+				font-weight: 400;
 				text-decoration: none;
 				margin-bottom: 1px;
 			}
@@ -133,7 +133,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			}
 			.topbar-title {
 				font-size: 13px;
-				font-weight: 700;
+				font-weight: 600;
 				color: #0f0f10;
 				white-space: nowrap;
 			}
@@ -167,13 +167,13 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 				margin-bottom: 16px;
 			}
 			.content-head h1 {
-				font-size: 22px;
+				font-size: 20px;
 				line-height: 1.2;
-				font-weight: 800;
+				font-weight: 600;
 				letter-spacing: 0;
 				margin-bottom: 4px;
 			}
-			.content-head p { font-size: 13px; color: #6e6b63; }
+			.content-head p { font-size: 13px; color: #6e6b63; font-weight: 400; }
 			.update-pill {
 				font-size: 12px;
 				color: #5b5a55;
@@ -200,7 +200,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			}
 			.brand {
 				display: flex; align-items: center; gap: 10px;
-				font-weight: 800; font-size: 1.05rem; color: var(--text-primary);
+				font-weight: 600; font-size: 1.05rem; color: var(--text-primary);
 				text-decoration: none; letter-spacing: -0.02em;
 			}
 			.brand-icon {
@@ -231,9 +231,9 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			.stat-icon-total { background: #f0f0f5; color: var(--text-primary); }
 			.stat-icon-ok { background: var(--color-primary-lightest); color: var(--color-primary); }
 			.stat-icon-fail { background: var(--color-danger-light); color: var(--color-danger); }
-			.stat-card .lbl { font-size: 0.82rem; color: var(--text-tertiary); font-weight: 500; }
+			.stat-card .lbl { font-size: 0.82rem; color: var(--text-tertiary); font-weight: 400; }
 			.stat-card .num {
-				font-size: 1.4rem; font-weight: 800; line-height: 1;
+				font-size: 1.4rem; font-weight: 600; line-height: 1;
 				font-variant-numeric: tabular-nums; margin-left: auto;
 			}
 			.stat-total .num { color: var(--text-primary); }
@@ -251,7 +251,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			}
 			.filter-bar .spacer { flex: 1; }
 			.filter-select {
-				font-size: 0.82rem; font-weight: 500; font-family: inherit;
+				font-size: 0.82rem; font-weight: 400; font-family: inherit;
 				border: 1px solid var(--border-color); border-radius: var(--radius-sm);
 				padding: 8px 36px 8px 14px; color: var(--text-primary);
 				background: var(--bg-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238d949e' d='M2.5 4.5L6 8l3.5-3.5'/%3E%3C/svg%3E") no-repeat right 12px center;
@@ -269,7 +269,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			}
 			.data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 			.data-table thead th {
-				font-size: 11px; font-weight: 700; color: #6e6b63;
+				font-size: 11px; font-weight: 600; color: #6e6b63;
 				letter-spacing: 0.06em; text-transform: uppercase;
 				padding: 10px 14px; background: #fafaf7; border-bottom: 1px solid #e5e3dc;
 				text-align: left;
@@ -287,7 +287,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			.badge {
 				display: inline-flex; align-items: center; gap: 4px;
 				padding: 4px 10px; border-radius: 20px;
-				font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em;
+				font-size: 0.72rem; font-weight: 500; letter-spacing: 0.01em;
 			}
 			.badge-notice { background: var(--color-warning-light); color: var(--color-warning); }
 			.badge-photo { background: var(--color-info-light); color: var(--color-info); }
@@ -295,10 +295,10 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			.badge-fail { background: var(--color-danger-light); color: var(--color-danger); }
 
 			/* ── 셀 ── */
-			.c-title { font-weight: 600; color: var(--text-primary); }
-			.c-pid { font-size: 0.78rem; color: var(--text-tertiary); font-variant-numeric: tabular-nums; font-weight: 500; }
-			.c-img { font-size: 0.82rem; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px; }
-			.c-date { font-size: 0.8rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+			.c-title { font-weight: 500; color: var(--text-primary); }
+			.c-pid { font-size: 0.78rem; color: var(--text-tertiary); font-variant-numeric: tabular-nums; font-weight: 400; }
+			.c-img { font-size: 0.82rem; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px; font-weight: 400; }
+			.c-date { font-size: 0.8rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 400; }
 
 			/* ── 토스트 ── */
 			.toast-container {
@@ -307,7 +307,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			}
 			.toast-msg {
 				padding: 12px 20px; border-radius: var(--radius-sm);
-				font-size: 0.82rem; font-weight: 600;
+				font-size: 0.82rem; font-weight: 500;
 				background: var(--bg-surface); color: var(--text-primary);
 				box-shadow: var(--shadow-lg);
 				animation: toast-in 0.3s cubic-bezier(0.21,1.02,0.73,1);
@@ -323,7 +323,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 				text-align: center; padding: 80px 20px; min-height: 320px;
 			}
 			.state-box .ico { font-size: 2.5rem; color: #d0d5dd; margin-bottom: 16px; }
-			.state-box h6 { font-weight: 700; margin-bottom: 4px; font-size: 1rem; }
+			.state-box h6 { font-weight: 600; margin-bottom: 4px; font-size: 1rem; }
 			.state-box p { font-size: 0.85rem; color: var(--text-tertiary); }
 			.loader {
 				width: 28px; height: 28px; border: 3px solid var(--border-color);
@@ -340,7 +340,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			.paging { display: flex; justify-content: center; align-items: center; gap: 4px; flex-wrap: wrap; }
 			.paging-meta { font-size: 0.8rem; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 			.page-btn {
-				font-size: 0.82rem; font-weight: 600; font-family: inherit;
+				font-size: 0.82rem; font-weight: 500; font-family: inherit;
 				min-width: 36px; height: 36px; padding: 0 10px; border-radius: var(--radius-sm);
 				border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary);
 				cursor: pointer; transition: all 0.15s;
@@ -372,7 +372,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 				padding: 18px 24px; border-bottom: 1px solid var(--border-color);
 				display: flex; align-items: center; justify-content: space-between; gap: 12px;
 			}
-			.modal-header h3 { font-size: 1rem; font-weight: 700; flex: 1; min-width: 0; }
+			.modal-header h3 { font-size: 1rem; font-weight: 600; flex: 1; min-width: 0; }
 			.modal-close {
 				background: transparent; border: none; cursor: pointer;
 				width: 32px; height: 32px; border-radius: 8px;
@@ -389,11 +389,11 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			.modal-section { margin-bottom: 20px; }
 			.modal-section:last-child { margin-bottom: 0; }
 			.modal-section h4 {
-				font-size: 0.72rem; font-weight: 700; color: var(--text-tertiary);
+				font-size: 0.72rem; font-weight: 600; color: var(--text-tertiary);
 				letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px;
 			}
 			.modal-meta { display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.82rem; color: var(--text-secondary); }
-			.modal-meta strong { font-weight: 600; color: var(--text-primary); }
+			.modal-meta strong { font-weight: 500; color: var(--text-primary); }
 			.modal-meta a { color: var(--color-info); text-decoration: none; }
 			.modal-meta a:hover { text-decoration: underline; }
 			.modal-body-text, .kakao-block {
@@ -407,7 +407,7 @@ const API_BASE = import.meta.env.PUBLIC_API_URL || "";
 			.kakao-empty { font-size: 0.82rem; color: var(--text-tertiary); font-style: italic; }
 
 			.btn-primary, .btn-secondary {
-				font-size: 0.85rem; font-weight: 600; font-family: inherit;
+				font-size: 0.85rem; font-weight: 500; font-family: inherit;
 				padding: 9px 18px; border-radius: 8px;
 				border: 1px solid transparent; cursor: pointer;
 				transition: background 0.15s, border-color 0.15s, transform 0.1s;
