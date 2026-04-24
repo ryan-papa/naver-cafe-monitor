@@ -1,0 +1,57 @@
+---
+/** Select.astro — size sm/md, options={value,label}[], 커스텀 화살표 SVG(native select). */
+type Size = "sm" | "md";
+type OptionItem = { value: string; label: string };
+
+interface Props {
+  options: OptionItem[];
+  size?: Size;
+  name?: string;
+  id?: string;
+  value?: string;
+  required?: boolean;
+  disabled?: boolean;
+  "aria-label"?: string;
+  "aria-describedby"?: string;
+  "data-testid"?: string;
+  class?: string;
+}
+
+const { options, size = "md", value, class: className, ...rest } = Astro.props;
+const h = size === "sm" ? 26 : 30;
+const fs = size === "sm" ? 12 : 13;
+---
+<select
+  class={`select-el${className ? " " + className : ""}`}
+  style={`height:${h}px;font-size:${fs}px;`}
+  {...rest}
+>
+  {options.map((o) => (
+    <option value={o.value} selected={value === o.value}>{o.label}</option>
+  ))}
+</select>
+
+<style>
+  .select-el {
+    padding: 0 24px 0 10px;
+    background-color: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--r-4);
+    color: var(--fg);
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235B5A55' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .select-el:focus {
+    outline: none;
+    border-color: var(--accent-border);
+  }
+  .select-el:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+</style>

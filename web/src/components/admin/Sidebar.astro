@@ -1,0 +1,193 @@
+---
+/**
+ * Sidebar.astro — 어드민 좌측 네비.
+ * props:
+ *   - activeRoute: 현재 경로 (예: "/admin/posts")
+ *   - version: 빌드 버전 표시 (기본 "0.0.1")
+ * 섹션: 개요 / 모니터링 / 시스템. 아이콘은 primitives/Icon.astro 사용.
+ */
+import Icon, { type IconName } from "../primitives/Icon.astro";
+
+interface Props {
+  activeRoute?: string;
+  version?: string;
+}
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: IconName;
+  disabled?: boolean;
+};
+
+type NavGroup = { group: string; items: NavItem[] };
+
+const { activeRoute = "", version = "0.0.1" } = Astro.props;
+
+const NAV: NavGroup[] = [
+  {
+    group: "개요",
+    items: [{ href: "/admin", label: "대시보드", icon: "home" }],
+  },
+  {
+    group: "모니터링",
+    items: [
+      { href: "/admin/posts", label: "처리 이력", icon: "inbox" },
+      { href: "/admin/queue", label: "알림 큐", icon: "alert", disabled: true },
+    ],
+  },
+  {
+    group: "시스템",
+    items: [
+      { href: "/admin/settings/2fa", label: "2단계 인증", icon: "settings" },
+      { href: "/admin/batch", label: "배치 이력", icon: "database", disabled: true },
+    ],
+  },
+];
+
+function isActive(href: string): boolean {
+  if (!activeRoute) return false;
+  if (href === "/admin") return activeRoute === "/admin" || activeRoute === "/admin/";
+  return activeRoute === href || activeRoute.startsWith(href + "/");
+}
+---
+
+<aside class="sidebar" aria-label="어드민 사이드바">
+  <div class="sidebar__logo">
+    <div class="sidebar__logo-mark" aria-hidden="true">NC</div>
+    <div class="sidebar__logo-text">
+      <div class="sidebar__logo-title">Naver Cafe Monitor</div>
+      <div class="sidebar__logo-sub">Admin · v{version}</div>
+    </div>
+  </div>
+  <nav class="sidebar__nav" aria-label="어드민 네비게이션">
+    {
+      NAV.map((group) => (
+        <div class="sidebar__group">
+          <div class="sidebar__group-title">{group.group}</div>
+          {group.items.map((item) => {
+            const active = isActive(item.href);
+            const classes = [
+              "sidebar__item",
+              active ? "is-active" : "",
+              item.disabled ? "is-disabled" : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+            return item.disabled ? (
+              <div class={classes} aria-disabled="true" title="준비 중">
+                <Icon name={item.icon} size={14} />
+                <span>{item.label}</span>
+              </div>
+            ) : (
+              <a
+                href={item.href}
+                class={classes}
+                aria-current={active ? "page" : undefined}
+              >
+                <Icon name={item.icon} size={14} />
+                <span>{item.label}</span>
+              </a>
+            );
+          })}
+        </div>
+      ))
+    }
+  </nav>
+</aside>
+
+<style>
+  .sidebar {
+    width: var(--sidebar-w);
+    flex-shrink: 0;
+    background: var(--bg-soft);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sidebar__logo {
+    height: var(--topbar-h);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar__logo-mark {
+    width: 22px;
+    height: 22px;
+    border-radius: var(--r-4);
+    background: var(--fg);
+    color: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-family: var(--font-mono);
+    flex-shrink: 0;
+  }
+  .sidebar__logo-text {
+    flex: 1;
+    min-width: 0;
+  }
+  .sidebar__logo-title {
+    font-size: var(--fs-13);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .sidebar__logo-sub {
+    font-size: var(--fs-11);
+    color: var(--fg-faint);
+  }
+  .sidebar__nav {
+    flex: 1;
+    overflow: auto;
+    padding: 8px 8px 16px;
+  }
+  .sidebar__group {
+    margin-bottom: 14px;
+  }
+  .sidebar__group-title {
+    padding: 4px 8px;
+    font-size: var(--fs-11);
+    color: var(--fg-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+  .sidebar__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: var(--r-4);
+    color: var(--fg-muted);
+    background: transparent;
+    font-size: var(--fs-13);
+    font-weight: 400;
+    margin-bottom: 1px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .sidebar__item:hover:not(.is-disabled):not(.is-active) {
+    background: var(--bg-hover);
+    color: var(--fg);
+  }
+  .sidebar__item.is-active {
+    color: var(--fg);
+    background: var(--bg-hover);
+    font-weight: 500;
+  }
+  .sidebar__item.is-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .sidebar__item:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+</style>

@@ -1,0 +1,69 @@
+---
+/** Pill.astro — tone: success/warning/danger/info/neutral/accent, size: sm/md, icon(선택). */
+import Icon, { type IconName } from "./Icon.astro";
+
+type Tone = "success" | "warning" | "danger" | "info" | "neutral" | "accent";
+type Size = "sm" | "md";
+
+interface Props {
+  tone?: Tone;
+  size?: Size;
+  icon?: IconName;
+  class?: string;
+}
+
+const { tone = "neutral", size = "sm", icon, class: className } = Astro.props;
+const h = size === "sm" ? 18 : 22;
+const fs = size === "sm" ? 10 : 11;
+---
+<span
+  class={`pill pill--${tone}${className ? " " + className : ""}`}
+  style={`height:${h}px;font-size:${fs}px;`}
+>
+  {icon && <Icon name={icon} size={fs} />}
+  <slot />
+</span>
+
+<style>
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    font-weight: 500;
+    border-radius: var(--r-4);
+    border: 1px solid;
+    white-space: nowrap;
+    line-height: 1;
+  }
+  .pill--success {
+    background: var(--success-soft);
+    color: var(--success);
+    border-color: var(--success-border);
+  }
+  .pill--warning {
+    background: var(--warning-soft);
+    color: var(--warning);
+    border-color: var(--warning-border);
+  }
+  .pill--danger {
+    background: var(--danger-soft);
+    color: var(--danger);
+    border-color: var(--danger-border);
+  }
+  .pill--info {
+    background: var(--info-soft);
+    color: var(--info);
+    border-color: var(--info-soft);
+  }
+  .pill--neutral {
+    background: var(--bg-soft);
+    color: var(--fg-muted);
+    border-color: var(--border);
+  }
+  .pill--accent {
+    background: var(--accent-soft);
+    color: var(--accent-fg);
+    border-color: var(--accent-border);
+  }
+</style>

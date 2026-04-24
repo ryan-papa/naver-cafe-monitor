@@ -1,0 +1,135 @@
+---
+/**
+ * Modal.astro — 접근성 대응 모달 셸.
+ * 제어(열기/닫기)는 islands/modal.ts 에서 수행 (initModals · openModal · closeModal).
+ * props:
+ *   - id: 모달 식별자 (필수)
+ *   - title: 헤더 타이틀
+ *   - size: "sm"(360) | "md"(480, 기본) | "lg"(720)
+ * slot:
+ *   - default: 본문
+ *   - footer: 하단 액션
+ */
+import Icon from "../primitives/Icon.astro";
+
+interface Props {
+  id: string;
+  title: string;
+  size?: "sm" | "md" | "lg";
+}
+
+const { id, title, size = "md" } = Astro.props;
+const titleId = `${id}-title`;
+---
+
+<div
+  class={`modal-backdrop modal-backdrop--${size}`}
+  data-modal-root={id}
+  hidden
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby={titleId}
+>
+  <div class="modal" data-modal-surface>
+    <header class="modal__header">
+      <h3 id={titleId} class="modal__title">{title}</h3>
+      <button
+        type="button"
+        class="modal__close"
+        data-modal-close
+        aria-label="닫기"
+      >
+        <Icon name="close" size={16} />
+      </button>
+    </header>
+    <div class="modal__body">
+      <slot />
+    </div>
+    <footer class="modal__footer">
+      <slot name="footer" />
+    </footer>
+  </div>
+</div>
+
+<style>
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 1000;
+  }
+  .modal-backdrop[hidden] {
+    display: none;
+  }
+  .modal {
+    background: var(--bg-elev);
+    border-radius: var(--r-8);
+    box-shadow: var(--shadow-lg);
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 48px);
+    overflow: hidden;
+  }
+  .modal-backdrop--sm .modal { max-width: 360px; }
+  .modal-backdrop--md .modal { max-width: 480px; }
+  .modal-backdrop--lg .modal { max-width: 720px; }
+
+  .modal__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal__title {
+    flex: 1;
+    margin: 0;
+    font-size: var(--fs-14);
+    font-weight: 600;
+    color: var(--fg);
+    letter-spacing: -0.01em;
+  }
+  .modal__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--r-4);
+    color: var(--fg-muted);
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .modal__close:hover {
+    background: var(--bg-hover);
+    color: var(--fg);
+  }
+  .modal__close:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .modal__body {
+    padding: 16px;
+    overflow: auto;
+    color: var(--fg);
+    font-size: var(--fs-13);
+    line-height: 1.55;
+  }
+  .modal__footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .modal__footer:empty {
+    display: none;
+  }
+</style>
