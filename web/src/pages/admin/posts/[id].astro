@@ -184,7 +184,7 @@ const canResend = detail?.status === "SUCCESS" && kakaoMessages.length > 0;
                   {blocks.map((b) => (
                     <div class="kakao-block">
                       {b.label && <div class="kakao-block__label">[{b.label}]</div>}
-                      <pre class="kakao-block__body">{b.body}</pre>
+                      <pre class="kakao-block__body">{collapseBlankLines(b.body)}</pre>
                     </div>
                   ))}
                 </article>
