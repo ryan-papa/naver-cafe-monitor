@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 import json
 import os
 import secrets
+import time
 import urllib.parse
 import urllib.request
 
@@ -26,6 +29,7 @@ GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 LOGIN_SUCCESS_PATH = "/admin/posts"
+STATE_MAX_AGE_SECONDS = 600
 
 
 def _required_env(name: str) -> str:
@@ -58,6 +62,45 @@ def _aes_key() -> bytes:
 
 def _hmac_key() -> bytes:
     return base64.b64decode(_required_env("AUTH_HMAC_KEY"))
+
+
+def _state_secret() -> bytes:
+    return _required_env("AUTH_JWT_SECRET").encode()
+
+
+def _b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).decode().rstrip("=")
+
+
+def _sign_state_payload(payload: str) -> str:
+    return _b64url(hmac.new(_state_secret(), payload.encode(), hashlib.sha256).digest())
+
+
+def _issue_state() -> str:
+    nonce = secrets.token_urlsafe(24)
+    issued_at = str(int(time.time()))
+    payload = f"{nonce}.{issued_at}"
+    return f"{payload}.{_sign_state_payload(payload)}"
+
+
+def _verify_state(state: str | None) -> bool:
+    if not state:
+        return False
+    parts = state.split(".")
+    if len(parts) != 3:
+        return False
+    nonce, issued_at_raw, signature = parts
+    if not nonce or not issued_at_raw or not signature:
+        return False
+    payload = f"{nonce}.{issued_at_raw}"
+    if not hmac.compare_digest(signature, _sign_state_payload(payload)):
+        return False
+    try:
+        issued_at = int(issued_at_raw)
+    except ValueError:
+        return False
+    now = int(time.time())
+    return 0 <= now - issued_at <= STATE_MAX_AGE_SECONDS
 
 
 def _redirect_uri(request: Request) -> str:
@@ -128,7 +171,7 @@ def _find_or_create_admin_user(
 @router.get("/oauth2/authorization/google")
 def google_oauth_start(request: Request) -> RedirectResponse:
     client_id = _required_env("GOOGLE_CLIENT_ID")
-    state = secrets.token_urlsafe(32)
+    state = _issue_state()
     params = {
         "client_id": client_id,
         "redirect_uri": _redirect_uri(request),
@@ -163,8 +206,7 @@ def google_oauth_callback(
 ):
     if error:
         return PlainTextResponse("oauth_login_failed", status_code=401)
-    expected_state = request.cookies.get(STATE_COOKIE)
-    if not expected_state or not state or not secrets.compare_digest(expected_state, state):
+    if not _verify_state(state):
         return PlainTextResponse("oauth_state_invalid", status_code=400)
     if not code:
         return PlainTextResponse("oauth_code_missing", status_code=400)
