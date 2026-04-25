@@ -81,7 +81,7 @@ class DbStore:
         with self._conn.cursor() as cur:
             cur.execute(
                 "SELECT board_id, MAX(post_id) AS max_id "
-                "FROM posts WHERE status = 'SUCCESS' GROUP BY board_id"
+                "FROM posts GROUP BY board_id"
             )
             rows = cur.fetchall()
         result = {}

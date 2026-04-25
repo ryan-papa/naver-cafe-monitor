@@ -24,7 +24,7 @@ ON DUPLICATE KEY UPDATE
 """
 
 _MAX_POST_ID_SQL = """
-SELECT MAX(post_id) AS max_id FROM posts WHERE board_id = %s AND status = 'SUCCESS'
+SELECT MAX(post_id) AS max_id FROM posts WHERE board_id = %s
 """
 
 
@@ -59,7 +59,7 @@ class PostRepository:
         logger.info("posts 저장: board=%s post=%d status=%s", board_id, post_id, status)
 
     def get_last_seen_id(self, board_id: str) -> int:
-        """board_id별 최신 성공 post_id를 반환한다. 없으면 0."""
+        """board_id별 최신 처리 post_id를 반환한다. 없으면 0."""
         with self._conn.cursor() as cur:
             cur.execute(_MAX_POST_ID_SQL, (board_id,))
             row = cur.fetchone()

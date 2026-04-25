@@ -24,7 +24,6 @@ from src.crawler.session import build_context, restore_cookies
 from src.messaging.kakao import KakaoMessenger
 from src.messaging.kakao_auth import KakaoAuth
 from src.notice.summarizer import Summarizer
-from src.storage.google_photos import GooglePhotosClient
 
 # shared 모듈 import (pymysql 미설치 환경에서는 graceful 폴백)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
@@ -41,8 +40,24 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _CAFE_URL = "https://cafe.naver.com/f-e/cafes/31672965"
 _PHOTO_ALBUM_ID = "AMjg2hP8k5198eTgkM9kcQO_IGEQAoqo-3uGqo8GCnKjGzhIDkfEzfkjsv22_h_oBzyWyQl8NqcA"
 _PHOTO_ALBUM_URL = "https://photos.google.com/album/AF1QipO6xY0TO1r6l9Qdp_bytBU-w0A5ZiRxLs_4KvYM"
-_NOTICE_ALBUM_ID = "AMjg2hO8NxElTPDPyohMs3DS72-H0y4OIGX1Pxsu_s-R-lKW73o2H9CAqUVgUHTT89nDwCTTGvfi"
-_NOTICE_ALBUM_URL = "https://photos.google.com/album/AF1QipNGmtFtsRkWf1VTrNEHXoX2_Heude7VxZ0jOsTM"
+_NOTICE_MAX_RETRIES = 3
+_NOTICE_RETRY_DELAY_SECONDS = 5.0
+_NOTICE_DB_SAVE_MAX_RETRIES = 3
+
+
+class NoticeProcessingError(RuntimeError):
+    """공지 처리 단계가 포함된 예외."""
+
+    def __init__(self, stage: str, exc: Exception) -> None:
+        self.stage = stage
+        self.original = exc
+        super().__init__(f"{stage}: {exc}")
+
+
+def _notice_stage_error(stage: str, exc: Exception) -> NoticeProcessingError:
+    if isinstance(exc, NoticeProcessingError):
+        return exc
+    return NoticeProcessingError(stage, exc)
 
 
 def _check_refresh_token_alert(auth: KakaoAuth, kakao: KakaoMessenger) -> None:
@@ -200,12 +215,226 @@ async def _process_photo_board(
     last_seen[menu_key] = max_id
 
 
+def _save_notice_result(
+    repo: PostRepository | None,
+    *,
+    menu_key: str,
+    post_id: int,
+    title: str,
+    summary: str | None,
+    image_count: int,
+    status: str,
+) -> None:
+    """공지 처리 결과를 DB에 저장한다."""
+    if repo is None:
+        return
+    repo.save(
+        board_id=menu_key,
+        post_id=post_id,
+        title=title,
+        summary=summary,
+        image_count=image_count,
+        status=status,
+    )
+
+
+async def _save_notice_result_with_retry(
+    repo: PostRepository | None,
+    *,
+    menu_key: str,
+    post_id: int,
+    title: str,
+    summary: str | None,
+    image_count: int,
+    status: str,
+    max_retries: int = _NOTICE_DB_SAVE_MAX_RETRIES,
+    retry_delay_seconds: float = _NOTICE_RETRY_DELAY_SECONDS,
+) -> bool:
+    """공지 처리 결과 DB 저장만 재시도한다."""
+    max_attempts = max_retries + 1
+    for attempt in range(1, max_attempts + 1):
+        try:
+            _save_notice_result(
+                repo,
+                menu_key=menu_key,
+                post_id=post_id,
+                title=title,
+                summary=summary,
+                image_count=image_count,
+                status=status,
+            )
+            return True
+        except Exception as exc:
+            if attempt < max_attempts:
+                logger.warning(
+                    "[공지] %s DB 기록 실패, 재시도 %d/%d: #%d %s — %s",
+                    status,
+                    attempt,
+                    max_retries,
+                    post_id,
+                    title,
+                    exc,
+                )
+                await asyncio.sleep(retry_delay_seconds)
+            else:
+                logger.error(
+                    "[공지] %s DB 기록 최종 실패 (총 %d회 시도): #%d %s — %s",
+                    status,
+                    max_attempts,
+                    post_id,
+                    title,
+                    exc,
+                )
+    return False
+
+
+async def _process_notice_article_once(
+    context,
+    *,
+    menu_key: str,
+    article: dict,
+    kakao: KakaoMessenger,
+    summarizer: Summarizer,
+    downloader: ImageDownloader,
+    repo: PostRepository | None = None,
+) -> bool:
+    """공지 게시글 1건을 한 번 처리하고 이력 저장 성공 여부를 반환한다."""
+    pid = article["post_id"]
+    title = article["title"]
+    post_url = article["url"]
+
+    try:
+        detail = await _fetch_post_detail(context, post_url)
+    except Exception as exc:
+        raise _notice_stage_error("detail_fetch", exc) from exc
+
+    image_urls = _filter_image_urls(detail["images"])
+    summaries = []
+
+    if image_urls:
+        try:
+            paths = await downloader.download_all(str(pid), image_urls)
+        except Exception as exc:
+            raise _notice_stage_error("image_download", exc) from exc
+        if not paths:
+            raise NoticeProcessingError(
+                "image_download",
+                RuntimeError(f"다운로드 성공 이미지 0/{len(image_urls)}장"),
+            )
+
+        # Claude 분석
+        for path in paths:
+            try:
+                result = summarizer.analyze_image(path)
+                summaries.append(result)
+            except Exception as e:
+                logger.warning("[공지] 이미지 분석 실패: %s — %s", path.name, e)
+                raise _notice_stage_error("image_analysis", e) from e
+
+        if summaries:
+            combined = "\n\n---\n\n".join(summaries)
+            try:
+                kakao.send_notice_summary(title, combined, post_url=post_url)
+            except Exception as exc:
+                raise _notice_stage_error("kakao_send", exc) from exc
+            logger.info("[공지] 요약 전송 완료: %s", title)
+    else:
+        logger.info("[공지] 이미지 없는 공지, 제목만 전송")
+        try:
+            kakao.send_text(f"[세화유치원 공지]\n\n📋 {title}")
+        except Exception as exc:
+            raise _notice_stage_error("kakao_send", exc) from exc
+
+    db_summary = "\n\n---\n\n".join(summaries) if summaries else None
+    saved = await _save_notice_result_with_retry(
+        repo,
+        menu_key=menu_key,
+        post_id=pid,
+        title=title,
+        summary=db_summary,
+        image_count=len(image_urls),
+        status="SUCCESS",
+    )
+    if not saved:
+        return False
+    return True
+
+
+async def _process_notice_article_with_retry(
+    context,
+    *,
+    menu_key: str,
+    article: dict,
+    kakao: KakaoMessenger,
+    summarizer: Summarizer,
+    downloader: ImageDownloader,
+    repo: PostRepository | None = None,
+    max_retries: int = _NOTICE_MAX_RETRIES,
+    retry_delay_seconds: float = _NOTICE_RETRY_DELAY_SECONDS,
+) -> bool:
+    """공지 게시글 1건을 재시도 포함 처리하고 성공 여부를 반환한다."""
+    pid = article["post_id"]
+    title = article["title"]
+    last_exc: Exception | None = None
+    max_attempts = max_retries + 1
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            processed = await _process_notice_article_once(
+                context,
+                menu_key=menu_key,
+                article=article,
+                kakao=kakao,
+                summarizer=summarizer,
+                downloader=downloader,
+                repo=repo,
+            )
+            return processed
+        except Exception as exc:
+            last_exc = exc
+            if attempt < max_attempts:
+                logger.warning(
+                    "[공지] 처리 실패, 재시도 %d/%d: #%d %s — %s",
+                    attempt,
+                    max_retries,
+                    pid,
+                    title,
+                    exc,
+                )
+                await asyncio.sleep(retry_delay_seconds)
+            else:
+                logger.error(
+                    "[공지] 최종 실패 (총 %d회 시도): #%d %s — %s",
+                    max_attempts,
+                    pid,
+                    title,
+                    exc,
+                )
+
+    if isinstance(last_exc, NoticeProcessingError):
+        failure_summary = (
+            f"처리 실패 단계: {last_exc.stage}\n"
+            f"오류: {last_exc.original}"
+        )
+    else:
+        failure_summary = f"처리 실패: {last_exc}" if last_exc else "처리 실패"
+    return await _save_notice_result_with_retry(
+        repo,
+        menu_key=menu_key,
+        post_id=pid,
+        title=title,
+        summary=failure_summary,
+        image_count=0,
+        status="FAIL",
+    )
+
+
 async def _process_notice_board(
     context, last_seen: dict, kakao: KakaoMessenger,
-    summarizer: Summarizer, gphotos: GooglePhotosClient,
+    summarizer: Summarizer,
     repo: PostRepository | None = None,
 ) -> None:
-    """공지사항(menus/6) 처리: 이미지 → 구글포토 + Claude 분석 → 카카오톡."""
+    """공지사항(menus/6) 처리: 이미지 → Claude 분석 → 카카오톡."""
     menu_key = "menus/6"
     last_id = int(last_seen.get(menu_key, 0))
     articles = await _fetch_new_articles(context, "6", last_id)
@@ -224,52 +453,22 @@ async def _process_notice_board(
     for article in articles:
         pid = article["post_id"]
         title = article["title"]
-        post_url = article["url"]
         logger.info("[공지] 새 게시물: #%d %s", pid, title)
 
-        detail = await _fetch_post_detail(context, post_url)
-        image_urls = _filter_image_urls(detail["images"])
-        summaries = []
-
-        if image_urls:
-            paths = await downloader.download_all(str(pid), image_urls)
-
-            # 구글 포토 공지 앨범에 업로드
-            tokens = gphotos.upload_images(paths)
-            if tokens:
-                gphotos.add_to_album(_NOTICE_ALBUM_ID, tokens)
-                logger.info("[공지] 이미지 %d장 구글 포토 업로드", len(tokens))
-
-            # Claude 분석
-            summaries = []
-            for path in paths:
-                try:
-                    result = summarizer.analyze_image(path)
-                    summaries.append(result)
-                except Exception as e:
-                    logger.warning("[공지] 이미지 분석 실패: %s — %s", path.name, e)
-
-            if summaries:
-                combined = "\n\n---\n\n".join(summaries)
-                kakao.send_notice_summary(title, combined, post_url=post_url)
-                logger.info("[공지] 요약 전송 완료: %s", title)
+        processed = await _process_notice_article_with_retry(
+            context,
+            menu_key=menu_key,
+            article=article,
+            kakao=kakao,
+            summarizer=summarizer,
+            downloader=downloader,
+            repo=repo,
+        )
+        if processed:
+            max_id = max(max_id, pid)
         else:
-            logger.info("[공지] 이미지 없는 공지, 제목만 전송")
-            kakao.send_text(f"[세화유치원 공지]\n\n📋 {title}")
-
-        # DB 기록
-        if repo:
-            try:
-                db_summary = "\n\n---\n\n".join(summaries) if summaries else None
-                repo.save(
-                    board_id=menu_key, post_id=pid, title=title,
-                    summary=db_summary,
-                    image_count=len(image_urls), status="SUCCESS",
-                )
-            except Exception as e:
-                logger.error("[공지] DB 기록 실패: %s", e)
-
-        max_id = max(max_id, pid)
+            logger.error("[공지] 이력 저장 실패로 이후 공지 처리를 중단합니다: #%d %s", pid, title)
+            break
 
     last_seen[menu_key] = max_id
 
@@ -296,9 +495,6 @@ def _save_last_seen(data: dict, db_conn=None) -> None:
 async def run() -> None:
     """배치 메인 로직."""
     config = load_config()
-
-    # Google Photos 토큰 로딩 (자동 갱신 포함)
-    gphotos = GooglePhotosClient()
 
     # 카카오 인증 + 메신저 초기화
     kakao_auth = KakaoAuth(
@@ -335,7 +531,7 @@ async def run() -> None:
 
         try:
             await _process_photo_board(context, last_seen, kakao, summarizer, repo)
-            await _process_notice_board(context, last_seen, kakao, summarizer, gphotos, repo)
+            await _process_notice_board(context, last_seen, kakao, summarizer, repo)
         finally:
             _save_last_seen(last_seen, db_conn)
             if db_conn:

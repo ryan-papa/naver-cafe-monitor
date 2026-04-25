@@ -241,6 +241,8 @@ class TestDbStore:
         result = store.load()
 
         assert result == {"menus/6": "100", "menus/13": "200"}
+        sql = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][0]
+        assert "WHERE status = 'SUCCESS'" not in sql
 
     def test_load_empty_table(self):
         conn = self._make_db_conn([])
