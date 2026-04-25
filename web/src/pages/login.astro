@@ -1,146 +1,29 @@
 ---
 /**
- * /login — Google OAuth 관리자 로그인 진입점.
+ * /login — 관리자 로그인 진입점.
+ *
+ * 화면 선택지를 보여주지 않고 인증 상태에 따라 즉시 이동한다.
  */
-import BaseHead from "../components/BaseHead.astro";
-import "../styles/tokens.css";
-import "../styles/globals.css";
+const API_BASE =
+  import.meta.env.INTERNAL_API_BASE || process.env.INTERNAL_API_BASE || "http://127.0.0.1:8000";
+const cookie = Astro.request.headers.get("cookie") ?? "";
+
+async function isAdminSession(): Promise<boolean> {
+  try {
+    const r = await fetch(`${API_BASE}/api/auth/me`, {
+      headers: cookie ? { cookie } : {},
+    });
+    if (!r.ok) return false;
+    const me = (await r.json()) as { is_admin?: boolean };
+    return me.is_admin === true;
+  } catch {
+    return false;
+  }
+}
+
+if (await isAdminSession()) {
+  return Astro.redirect("/admin/posts", 302);
+}
+
+return Astro.redirect("/oauth2/authorization/google", 302);
 ---
-
-<html lang="ko">
-  <head>
-    <BaseHead title="로그인 · 카페 모니터" description="관리자 로그인" />
-  </head>
-  <body class="mf-admin auth">
-    <main class="auth__shell">
-      <section class="auth__card" aria-labelledby="login-title">
-        <header class="auth__brand">
-          <div class="auth__logo" aria-hidden="true">NC</div>
-          <div class="auth__brand-text">
-            <div class="auth__brand-title">Naver Cafe Monitor</div>
-            <div class="auth__brand-sub">Admin</div>
-          </div>
-        </header>
-
-        <h1 id="login-title" class="auth__title">로그인</h1>
-        <p id="status" class="auth__sub">인증 상태를 확인하고 있습니다.</p>
-
-        <a id="google-login" class="auth__button" href="/oauth2/authorization/google">
-          Google 로 로그인
-        </a>
-        <p class="auth__foot">허용된 관리자 계정만 접근할 수 있습니다.</p>
-      </section>
-    </main>
-
-    <style>
-      body.auth {
-        background: var(--bg-soft);
-        min-height: 100dvh;
-        margin: 0;
-      }
-      .auth__shell {
-        min-height: 100dvh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 32px 16px;
-      }
-      .auth__card {
-        width: 100%;
-        max-width: 400px;
-        background: var(--bg-elev);
-        border: 1px solid var(--border);
-        border-radius: var(--r-8);
-        box-shadow: var(--shadow-md);
-        padding: 32px;
-      }
-      .auth__brand {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 20px;
-      }
-      .auth__logo {
-        width: 22px;
-        height: 22px;
-        border-radius: var(--r-4);
-        background: var(--fg);
-        color: var(--bg);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        font-weight: 700;
-        font-family: var(--font-mono);
-        flex-shrink: 0;
-      }
-      .auth__brand-text { display: flex; flex-direction: column; line-height: 1.15; }
-      .auth__brand-title { font-size: var(--fs-13); font-weight: 600; color: var(--fg); }
-      .auth__brand-sub { font-size: var(--fs-11); color: var(--fg-faint); }
-      .auth__title {
-        font-size: var(--fs-18);
-        font-weight: 600;
-        color: var(--fg);
-        margin: 0 0 4px 0;
-      }
-      .auth__sub {
-        font-size: var(--fs-13);
-        color: var(--fg-muted);
-        margin: 0 0 20px 0;
-      }
-      .auth__button {
-        display: inline-flex;
-        width: 100%;
-        min-height: 40px;
-        align-items: center;
-        justify-content: center;
-        border-radius: var(--r-4);
-        border: 1px solid var(--fg);
-        background: var(--fg);
-        color: var(--bg);
-        font-size: var(--fs-14);
-        font-weight: 600;
-        text-decoration: none;
-      }
-      .auth__button:focus-visible {
-        outline: 2px solid var(--focus);
-        outline-offset: 2px;
-      }
-      .auth__foot {
-        text-align: center;
-        font-size: var(--fs-12);
-        color: var(--fg-faint);
-        margin: 14px 0 0 0;
-      }
-      @media (max-width: 480px) {
-        .auth__card { padding: 24px; box-shadow: none; }
-      }
-    </style>
-
-    <script>
-      const status = document.getElementById('status') as HTMLParagraphElement;
-      const googleUrl = '/oauth2/authorization/google';
-
-      fetch('/api/auth/me', { credentials: 'include' })
-        .then((res) => {
-          if (res.ok) {
-            return res.json().then((me) => {
-              if (me?.is_admin === true) {
-                window.location.replace('/admin/posts');
-                return;
-              }
-              window.location.href = googleUrl;
-            });
-          }
-          if (res.status === 401 || res.status === 403) {
-            window.location.href = googleUrl;
-            return;
-          }
-          status.textContent = '서버 응답을 받지 못했습니다. 아래 버튼으로 직접 로그인해 주세요.';
-        })
-        .catch(() => {
-          status.textContent = '네트워크 오류가 발생했습니다. 아래 버튼으로 직접 로그인해 주세요.';
-        });
-    </script>
-  </body>
-</html>
