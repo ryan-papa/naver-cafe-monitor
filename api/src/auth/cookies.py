@@ -4,9 +4,11 @@ PRD의 쿠키·CSRF 상세 정책을 구현.
 
 | 쿠키 | HttpOnly | Secure | SameSite | Path | Max-Age |
 |------|----------|--------|----------|------|---------|
-| access_token   | True  | True | Strict | /            | 3600  |
-| refresh_token  | True  | True | Strict | /api/auth    | 86400 |
-| csrf_token     | False | True | Strict | /            | 3600  |
+| access_token   | True  | True | Lax    | /            | 3600  |
+| refresh_token  | True  | True | Lax    | /api/auth    | 86400 |
+| csrf_token     | False | True | Lax    | /            | 3600  |
+
+OAuth 콜백 후 cross-site 네비게이션에서 Set-Cookie가 후속 요청에 전송되도록 Lax 사용.
 """
 from __future__ import annotations
 
@@ -28,7 +30,7 @@ def set_access_cookie(response: Response, token: str) -> None:
         max_age=ACCESS_MAX_AGE,
         httponly=True,
         secure=True,
-        samesite="strict",
+        samesite="lax",
         path="/",
     )
 
@@ -40,7 +42,7 @@ def set_refresh_cookie(response: Response, token: str) -> None:
         max_age=REFRESH_MAX_AGE,
         httponly=True,
         secure=True,
-        samesite="strict",
+        samesite="lax",
         path=REFRESH_PATH,
     )
 
@@ -52,7 +54,7 @@ def set_csrf_cookie(response: Response, token: str) -> None:
         max_age=ACCESS_MAX_AGE,
         httponly=False,
         secure=True,
-        samesite="strict",
+        samesite="lax",
         path="/",
     )
 
