@@ -28,7 +28,7 @@ STATE_COOKIE = "google_oauth_state"
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
-LOGIN_SUCCESS_PATH = "/admin/posts"
+DEFAULT_LOGIN_SUCCESS_PATH = "/admin/posts"
 STATE_MAX_AGE_SECONDS = 600
 
 
@@ -108,6 +108,10 @@ def _redirect_uri(request: Request) -> str:
     if configured:
         return configured
     return str(request.url_for("google_oauth_callback"))
+
+
+def _login_success_url() -> str:
+    return os.environ.get("GOOGLE_OAUTH_SUCCESS_URL", "").strip() or DEFAULT_LOGIN_SUCCESS_PATH
 
 
 def _post_form(url: str, data: dict[str, str]) -> dict:
@@ -244,7 +248,7 @@ def google_oauth_callback(
     pair = issue_pair(user_id, repo=refresh_repo)
     log_auth_event("login_ok", user_id=user_id, ip=ip, user_agent=ua)
 
-    response = RedirectResponse(LOGIN_SUCCESS_PATH, status_code=302)
+    response = RedirectResponse(_login_success_url(), status_code=302)
     response.delete_cookie(STATE_COOKIE, path="/")
     set_access_cookie(response, pair.access_token)
     set_refresh_cookie(response, pair.refresh_token)

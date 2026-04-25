@@ -2,15 +2,13 @@ import { test, expect } from '@playwright/test';
 
 /**
  * 레거시 경로 리다이렉트 검증.
- * - `/` → `/admin` (미들웨어 legacy redirect) → 미인증이라 최종 `/login?next=/admin`
+ * - `/` → `/admin` (미들웨어 legacy redirect) → `/login` → Google OAuth 진입점
  */
 test.describe('legacy redirects', () => {
-	test('GET / (unauthenticated) ends up on /login with next=/admin', async ({ page }) => {
+	test('GET / (unauthenticated) ends up at Google OAuth entry', async ({ page }) => {
 		const response = await page.goto('/', { waitUntil: 'domcontentloaded' });
 		expect(response).not.toBeNull();
-		await expect(page).toHaveURL(/\/login(\?|$)/);
-		const url = new URL(page.url());
-		expect(url.searchParams.get('next')).toBe('/admin');
+		await expect(page).toHaveURL(/\/oauth2\/authorization\/google$/);
 	});
 
 	test('GET / issues a 302 to /admin without following', async ({ request }) => {
