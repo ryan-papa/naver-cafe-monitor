@@ -67,6 +67,8 @@ class TestGetLastSeenId:
         result = repo.get_last_seen_id("menus/13")
 
         assert result == 500
+        sql = cursor.execute.call_args[0][0]
+        assert "status = 'SUCCESS'" not in sql
 
     def test_returns_zero_when_no_records(self, mock_conn):
         conn, cursor = mock_conn
