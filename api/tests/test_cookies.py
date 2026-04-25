@@ -40,10 +40,11 @@ def test_cookies_have_required_flags():
     refresh = next(h for h in raw if h.startswith(cookies.REFRESH_COOKIE + "="))
     csrf = next(h for h in raw if h.startswith(cookies.CSRF_COOKIE + "="))
 
-    # access / refresh / csrf common: Secure + SameSite=strict
+    # access / refresh / csrf common: Secure + SameSite=lax
+    # Lax는 OAuth 콜백 후 cross-site 네비게이션에서 쿠키 전송을 허용한다.
     for h in (access, refresh, csrf):
         assert "Secure" in h
-        assert "SameSite=strict" in h.lower() or "samesite=strict" in h.lower()
+        assert "samesite=lax" in h.lower()
 
     # HttpOnly
     assert "HttpOnly" in access
