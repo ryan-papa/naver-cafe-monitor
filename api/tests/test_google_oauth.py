@@ -7,7 +7,12 @@ from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
 from api.src.auth.dependencies import get_user_repository
-from api.src.auth.google_oauth import STATE_COOKIE, _find_or_create_admin_user
+from api.src.auth.google_oauth import (
+    STATE_COOKIE,
+    _find_or_create_admin_user,
+    _issue_state,
+    _verify_state,
+)
 from api.src.main import app
 from shared.crypto import hmac_sha256
 from shared.user_repository import UserRow
@@ -32,6 +37,13 @@ def test_google_start_redirects_to_google_and_sets_state(monkeypatch):
     assert r.status_code == 302
     assert r.headers["location"].startswith("https://accounts.google.com/o/oauth2/v2/auth?")
     assert STATE_COOKIE in r.cookies
+
+
+def test_signed_state_verifies_without_cookie(monkeypatch):
+    _env(monkeypatch)
+    state = _issue_state()
+    assert _verify_state(state) is True
+    assert _verify_state(state + "x") is False
 
 
 def test_existing_allowed_non_admin_user_is_promoted(monkeypatch):
@@ -92,7 +104,6 @@ def test_google_callback_rejects_invalid_state(monkeypatch):
     try:
         r = TestClient(app).get(
             "/login/oauth2/code/google?code=x&state=bad",
-            cookies={STATE_COOKIE: "good"},
         )
         assert r.status_code == 400
         assert r.text == "oauth_state_invalid"
