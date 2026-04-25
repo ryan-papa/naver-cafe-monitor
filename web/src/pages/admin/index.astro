@@ -35,13 +35,15 @@ async function fetchList(qs: string): Promise<ListResponse | null> {
   }
 }
 
-async function fetchMe(): Promise<{ email?: string } | null> {
+type MeResult = { user: { email?: string; is_admin?: boolean } | null; status: number | null };
+
+async function fetchMe(): Promise<MeResult> {
   try {
     const r = await fetch(`${API_BASE}/api/auth/me`, { headers: cookie ? { cookie } : {} });
-    if (!r.ok) return null;
-    return (await r.json()) as { email?: string };
+    if (!r.ok) return { user: null, status: r.status };
+    return { user: (await r.json()) as { email?: string; is_admin?: boolean }, status: r.status };
   } catch {
-    return null;
+    return { user: null, status: null };
   }
 }
 
@@ -54,6 +56,9 @@ const [recent, allStat, okStat, failStat, me] = await Promise.all([
 ]);
 
 const hasError = recent === null && allStat === null;
+if (me.status === 401 || me.status === 403 || me.user?.is_admin === false) {
+  return Astro.redirect("/login?next=/admin", 302);
+}
 const total = allStat?.total ?? recent?.total ?? 0;
 const successCount = okStat?.total ?? 0;
 const failCount = failStat?.total ?? 0;
@@ -77,7 +82,7 @@ function escapeHtml(v: unknown): string {
 }
 ---
 
-<AppShell title="대시보드 · 카페 모니터" description="처리 이력 요약" email={me?.email} activeRoute="/admin">
+<AppShell title="대시보드 · 카페 모니터" description="처리 이력 요약" email={me.user?.email} activeRoute="/admin">
   <PageHeader title="대시보드" subtitle="네이버 카페 모니터링 처리 이력 요약" />
 
   <div class="dashboard">

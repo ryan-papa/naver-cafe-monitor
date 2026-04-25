@@ -8,7 +8,12 @@ export const PUBLIC_PATHS = new Set<string>([
 	'/error/offline',
 ]);
 
-export const PUBLIC_PREFIXES = ['/_astro/', '/favicon.'];
+export const PUBLIC_PREFIXES = [
+	'/_astro/',
+	'/favicon.',
+	'/oauth2/',
+	'/login/oauth2/',
+];
 
 export function isPublic(pathname: string): boolean {
 	if (PUBLIC_PATHS.has(pathname)) return true;

@@ -76,6 +76,16 @@ async def current_user(
     return auth.user
 
 
+async def current_admin(
+    user: UserRow = Depends(current_user),
+) -> UserRow:
+    if not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin permission required"
+        )
+    return user
+
+
 async def optional_user(
     access_token: str | None = Cookie(default=None, alias=ACCESS_COOKIE),
     repo: UserRepository = Depends(get_user_repository),

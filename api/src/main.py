@@ -23,13 +23,15 @@ from shared.post_repository import PostRepository
 from shared.user_repository import UserRow
 
 from api.src.auth.csrf import verify_csrf
-from api.src.auth.dependencies import current_user
+from api.src.auth.dependencies import current_admin
+from api.src.auth.google_oauth import router as google_oauth_router
 from api.src.auth.router import router as auth_router
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Naver Cafe Monitor API", version="0.1.0")
 app.include_router(auth_router)
+app.include_router(google_oauth_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -56,7 +58,7 @@ def get_repo() -> Generator[PostRepository, None, None]:
 @app.get("/api/posts")
 def list_posts(
     repo: PostRepository = Depends(get_repo),
-    _user: UserRow = Depends(current_user),
+    _user: UserRow = Depends(current_admin),
     board_id: Optional[str] = Query(None, description="게시판 필터 (menus/6, menus/13)"),
     status: Optional[str] = Query(None, description="상태 필터 (SUCCESS, FAIL)"),
     sort_by: str = Query("reg_ts", description="정렬 기준 (reg_ts, post_date, post_id)"),
@@ -87,7 +89,7 @@ def list_posts(
 def get_post(
     record_id: int,
     repo: PostRepository = Depends(get_repo),
-    _user: UserRow = Depends(current_user),
+    _user: UserRow = Depends(current_admin),
 ):
     """게시글 단건 상세 조회 — 카카오톡 재구성 메시지 + 원본 URL 포함."""
     from shared.kakao_format import reconstruct_kakao_messages
@@ -132,7 +134,7 @@ def _get_kakao_messenger():
 def resend_post(
     record_id: int,
     repo: PostRepository = Depends(get_repo),
-    _user: UserRow = Depends(current_user),
+    _user: UserRow = Depends(current_admin),
 ):
     """게시글 카카오톡 알림을 재발송한다."""
     row = repo.find_by_id(record_id)

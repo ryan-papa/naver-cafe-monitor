@@ -1,10 +1,8 @@
 ---
 /**
- * /login — 관리자 로그인.
+ * /login — Google OAuth 관리자 로그인 진입점.
  */
 import BaseHead from "../components/BaseHead.astro";
-import Button from "../components/primitives/Button.astro";
-import Input from "../components/primitives/Input.astro";
 import "../styles/tokens.css";
 import "../styles/globals.css";
 ---
@@ -25,30 +23,12 @@ import "../styles/globals.css";
         </header>
 
         <h1 id="login-title" class="auth__title">로그인</h1>
-        <p class="auth__sub">이메일과 비밀번호를 입력하세요.</p>
+        <p id="status" class="auth__sub">인증 상태를 확인하고 있습니다.</p>
 
-        <div id="err" class="alert alert--danger" role="alert" hidden></div>
-
-        <form id="login-form" novalidate>
-          <div class="auth__fields">
-            <div class="auth__field">
-              <label for="email">이메일</label>
-              <Input id="email" type="email" required autocomplete="email" />
-            </div>
-            <div class="auth__field">
-              <label for="password">비밀번호</label>
-              <Input id="password" type="password" required autocomplete="current-password" />
-            </div>
-          </div>
-
-          <div class="auth__submit">
-            <Button id="submit" type="submit" variant="primary" size="lg">로그인</Button>
-          </div>
-        </form>
-
-        <p class="auth__foot">
-          계정이 없으신가요? <a href="/signup">회원가입</a>
-        </p>
+        <a id="google-login" class="auth__button" href="/oauth2/authorization/google">
+          Google 로 로그인
+        </a>
+        <p class="auth__foot">허용된 관리자 계정만 접근할 수 있습니다.</p>
       </section>
     </main>
 
@@ -91,7 +71,6 @@ import "../styles/globals.css";
         justify-content: center;
         font-size: 12px;
         font-weight: 700;
-        letter-spacing: -0.02em;
         font-family: var(--font-mono);
         flex-shrink: 0;
       }
@@ -103,49 +82,35 @@ import "../styles/globals.css";
         font-weight: 600;
         color: var(--fg);
         margin: 0 0 4px 0;
-        letter-spacing: -0.01em;
       }
       .auth__sub {
         font-size: var(--fs-13);
         color: var(--fg-muted);
         margin: 0 0 20px 0;
       }
-      .auth__fields {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-      .auth__field { display: flex; flex-direction: column; gap: 4px; }
-      .auth__field label {
-        font-size: var(--fs-12);
-        font-weight: 500;
-        color: var(--fg-muted);
-      }
-      .auth__submit { margin-top: 16px; display: flex; flex-direction: column; }
-      .auth__submit :global(.btn) { width: 100%; justify-content: center; }
-      .auth__foot {
-        text-align: center;
-        font-size: var(--fs-13);
-        color: var(--fg-muted);
-        margin: 18px 0 0 0;
-      }
-      .auth__foot a {
-        color: var(--accent-fg);
+      .auth__button {
+        display: inline-flex;
+        width: 100%;
+        min-height: 40px;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--r-4);
+        border: 1px solid var(--fg);
+        background: var(--fg);
+        color: var(--bg);
+        font-size: var(--fs-14);
         font-weight: 600;
         text-decoration: none;
       }
-      .auth__foot a:hover { text-decoration: underline; }
-      .alert {
-        padding: 10px 12px;
-        border-radius: var(--r-6);
-        font-size: var(--fs-13);
-        border: 1px solid transparent;
-        margin-bottom: 12px;
+      .auth__button:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
       }
-      .alert--danger {
-        background: var(--danger-soft);
-        color: var(--danger);
-        border-color: var(--danger-border);
+      .auth__foot {
+        text-align: center;
+        font-size: var(--fs-12);
+        color: var(--fg-faint);
+        margin: 14px 0 0 0;
       }
       @media (max-width: 480px) {
         .auth__card { padding: 24px; box-shadow: none; }
@@ -153,71 +118,29 @@ import "../styles/globals.css";
     </style>
 
     <script>
-      import { fetchPublicKey, encryptField } from '../lib/auth-client';
+      const status = document.getElementById('status') as HTMLParagraphElement;
+      const googleUrl = '/oauth2/authorization/google';
 
-      const form = document.getElementById('login-form') as HTMLFormElement;
-      const errBox = document.getElementById('err') as HTMLDivElement;
-      const emailInput = document.getElementById('email') as HTMLInputElement;
-      const pwInput = document.getElementById('password') as HTMLInputElement;
-      const submitBtn = document.getElementById('submit') as HTMLButtonElement;
-      const next = new URL(window.location.href).searchParams.get('next') || '/admin';
-
-      let cachedKey: CryptoKey | null = null;
-      async function getKey() {
-        if (!cachedKey) cachedKey = await fetchPublicKey();
-        return cachedKey;
-      }
-
-      function showErr(msg: string) {
-        errBox.textContent = msg;
-        errBox.hidden = false;
-      }
-      function clearErr() {
-        errBox.hidden = true;
-        errBox.textContent = '';
-      }
-
-      const ERROR_MSG: Record<string, string> = {
-        invalid_credentials: '이메일 또는 비밀번호가 올바르지 않습니다.',
-        account_locked: '로그인 실패가 반복되어 15분간 잠겼습니다. 잠시 후 다시 시도하세요.',
-        ip_rate_limited: '요청이 너무 많습니다. 15분 뒤 다시 시도하세요.',
-        account_rate_limited: '로그인 시도가 너무 많습니다. 15분 뒤 다시 시도하세요.',
-      };
-
-      (form as HTMLFormElement & { __ready?: boolean }).__ready = true;
-
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        clearErr();
-        submitBtn.disabled = true;
-        submitBtn.textContent = '처리 중…';
-        try {
-          const pub = await getKey();
-          const body: Record<string, string> = {
-            email_enc: await encryptField(pub, emailInput.value.trim()),
-            password_enc: await encryptField(pub, pwInput.value),
-          };
-          const r = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(body),
-          });
-          if (r.ok) {
-            window.location.assign(next);
+      fetch('/api/auth/me', { credentials: 'include' })
+        .then((res) => {
+          if (res.ok) {
+            return res.json().then((me) => {
+              if (me?.is_admin === true) {
+                window.location.replace('/admin/posts');
+                return;
+              }
+              window.location.href = googleUrl;
+            });
+          }
+          if (res.status === 401 || res.status === 403) {
+            window.location.href = googleUrl;
             return;
           }
-          const data = await r.json().catch(() => ({}));
-          const code = data.detail || 'unknown';
-          showErr(ERROR_MSG[code] || '로그인에 실패했습니다. (' + code + ')');
-        } catch (err) {
-          console.error(err);
-          showErr('네트워크 오류가 발생했습니다.');
-        } finally {
-          submitBtn.disabled = false;
-          submitBtn.textContent = '로그인';
-        }
-      });
+          status.textContent = '서버 응답을 받지 못했습니다. 아래 버튼으로 직접 로그인해 주세요.';
+        })
+        .catch(() => {
+          status.textContent = '네트워크 오류가 발생했습니다. 아래 버튼으로 직접 로그인해 주세요.';
+        });
     </script>
   </body>
 </html>
