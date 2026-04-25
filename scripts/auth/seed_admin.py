@@ -12,7 +12,6 @@
 동작:
 - 이미 동일 이메일이 있으면 skip (종료코드 0)
 - --force: 기존 계정의 password/name 덮어쓰기 (is_admin=TRUE)
-- TOTP 는 최초 로그인 흐름에서 등록 → 여기서는 totp_enabled=FALSE 로 두고 필수 플래그만 기록
 
 실행 예시 (외부에서 sops 로 env 주입):
     sops exec-env --input-type dotenv .env.enc 'python scripts/auth/seed_admin.py'

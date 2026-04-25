@@ -37,8 +37,8 @@ test.describe('primitives on /login', () => {
 		const email = page.locator('#email');
 		const wrap = email.locator('xpath=ancestor::div[contains(@class,"input-wrap")][1]');
 
-		// 포커스 전 border-color 캡처
-		await page.locator('body').click();
+		// 포커스 전 border-color 캡처 — 활성 element 명시적 blur
+		await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur?.());
 		const before = await wrap.evaluate(
 			(el) => window.getComputedStyle(el as HTMLElement).borderColor,
 		);

@@ -32,7 +32,6 @@ class TokenPayload:
     jti: str
     issued_at: datetime
     expires_at: datetime
-    totp_setup_required: bool = False
 
 
 def _now() -> datetime:
@@ -92,13 +91,13 @@ def verify_token(token: str, secret: str, expected_type: str) -> TokenPayload:
     except (KeyError, ValueError, TypeError) as e:
         raise TokenError("sub missing/invalid") from e
 
+    # `totp_setup_required` 클레임이 과거 발급 토큰에 남아있을 수 있으나 무시한다 (F-15).
     return TokenPayload(
         user_id=user_id,
         type=decoded["type"],
         jti=decoded.get("jti", ""),
         issued_at=datetime.fromtimestamp(decoded["iat"], tz=timezone.utc),
         expires_at=datetime.fromtimestamp(decoded["exp"], tz=timezone.utc),
-        totp_setup_required=bool(decoded.get("totp_setup_required", False)),
     )
 
 

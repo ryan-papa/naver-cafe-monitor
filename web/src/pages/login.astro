@@ -1,7 +1,6 @@
 ---
 /**
  * /login — 관리자 로그인.
- * museum-finder 토큰 기반 카드 리디자인. 폼 로직·API·에러처리는 기존과 동일.
  */
 import BaseHead from "../components/BaseHead.astro";
 import Button from "../components/primitives/Button.astro";
@@ -31,7 +30,7 @@ import "../styles/globals.css";
         <div id="err" class="alert alert--danger" role="alert" hidden></div>
 
         <form id="login-form" novalidate>
-          <div id="creds-step" class="auth__fields">
+          <div class="auth__fields">
             <div class="auth__field">
               <label for="email">이메일</label>
               <Input id="email" type="email" required autocomplete="email" />
@@ -39,21 +38,6 @@ import "../styles/globals.css";
             <div class="auth__field">
               <label for="password">비밀번호</label>
               <Input id="password" type="password" required autocomplete="current-password" />
-            </div>
-          </div>
-
-          <div id="totp-step" class="auth__fields auth__fields--totp" hidden>
-            <div class="auth__field">
-              <label for="totp">인증 앱 코드</label>
-              <Input
-                id="totp"
-                type="text"
-                inputmode="numeric"
-                pattern="[0-9]*"
-                maxlength={6}
-                autocomplete="one-time-code"
-              />
-              <p class="auth__hint">Google Authenticator 등에 표시된 6자리 코드를 입력하세요.</p>
             </div>
           </div>
 
@@ -131,17 +115,11 @@ import "../styles/globals.css";
         flex-direction: column;
         gap: 12px;
       }
-      .auth__fields--totp { margin-top: 12px; }
       .auth__field { display: flex; flex-direction: column; gap: 4px; }
       .auth__field label {
         font-size: var(--fs-12);
         font-weight: 500;
         color: var(--fg-muted);
-      }
-      .auth__hint {
-        font-size: var(--fs-12);
-        color: var(--fg-faint);
-        margin: 4px 0 0 0;
       }
       .auth__submit { margin-top: 16px; display: flex; flex-direction: column; }
       .auth__submit :global(.btn) { width: 100%; justify-content: center; }
@@ -181,8 +159,6 @@ import "../styles/globals.css";
       const errBox = document.getElementById('err') as HTMLDivElement;
       const emailInput = document.getElementById('email') as HTMLInputElement;
       const pwInput = document.getElementById('password') as HTMLInputElement;
-      const totpInput = document.getElementById('totp') as HTMLInputElement;
-      const totpStep = document.getElementById('totp-step') as HTMLDivElement;
       const submitBtn = document.getElementById('submit') as HTMLButtonElement;
       const next = new URL(window.location.href).searchParams.get('next') || '/admin';
 
@@ -206,8 +182,6 @@ import "../styles/globals.css";
         account_locked: '로그인 실패가 반복되어 15분간 잠겼습니다. 잠시 후 다시 시도하세요.',
         ip_rate_limited: '요청이 너무 많습니다. 15분 뒤 다시 시도하세요.',
         account_rate_limited: '로그인 시도가 너무 많습니다. 15분 뒤 다시 시도하세요.',
-        totp_required: '2단계 인증 코드가 필요합니다.',
-        totp_invalid: '인증 코드가 올바르지 않습니다.',
       };
 
       form.addEventListener('submit', async (e) => {
@@ -221,9 +195,6 @@ import "../styles/globals.css";
             email_enc: await encryptField(pub, emailInput.value.trim()),
             password_enc: await encryptField(pub, pwInput.value),
           };
-          if (!totpStep.hidden) {
-            body.totp_code = totpInput.value.trim();
-          }
           const r = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
@@ -236,11 +207,6 @@ import "../styles/globals.css";
           }
           const data = await r.json().catch(() => ({}));
           const code = data.detail || 'unknown';
-          if (code === 'totp_required' && totpStep.hidden) {
-            totpStep.hidden = false;
-            totpInput.focus();
-            return;
-          }
           showErr(ERROR_MSG[code] || '로그인에 실패했습니다. (' + code + ')');
         } catch (err) {
           console.error(err);

@@ -10,8 +10,8 @@
 |:--------:|:---------:|
 | ![dashboard](docs/screenshots/dashboard.jpg) | ![detail-modal](docs/screenshots/detail-modal.jpg) |
 
-| 로그인 | 회원가입 (3단계: 정보 → TOTP → 완료) |
-|:------:|:------------------------------------:|
+| 로그인 | 회원가입 |
+|:------:|:--------:|
 | ![login](docs/screenshots/login.jpg) | ![signup](docs/screenshots/signup.jpg) |
 
 ---
@@ -21,9 +21,9 @@
 | 컴포넌트 | 역할 |
 |----------|------|
 | **Batch** | 30분 주기 크롤링 → 얼굴 필터링 → AI 요약 → 카카오톡 알림 |
-| **API** | 처리 이력 조회 + 인증(회원가입/로그인/2FA) REST API (FastAPI/Uvicorn) |
-| **Web** | 처리 이력 대시보드 — 통계, 필터, 페이지네이션, 상세 모달(카카오 전송 내용 미리보기·재발송) + 로그인·회원가입·2FA 설정 (Astro SSR) |
-| **Auth** | 이메일·이름 AES-GCM + HMAC, 비번 argon2id, JWT + Refresh Rotation, TOTP 2FA, 도메인 기반 2FA 정책 |
+| **API** | 처리 이력 조회 + 인증(회원가입/로그인) REST API (FastAPI/Uvicorn) |
+| **Web** | 처리 이력 대시보드 — 통계, 필터, 페이지네이션, 상세 모달(카카오 전송 내용 미리보기·재발송) + 로그인·회원가입 (Astro SSR) |
+| **Auth** | 이메일·이름 AES-GCM + HMAC, 비번 argon2id, JWT + Refresh Rotation, mTLS 외부 차단 |
 
 ### 배치 파이프라인
 
@@ -39,8 +39,7 @@
 ```
    브라우저
      │
-     ├──(내부 mTLS)──→  ncm.<internal-host>     (*.eepp.shop, 2FA 면제)
-     └──(외부)     ──→  ncm.<external-host>     (*.eepp.store, 2FA 필수)
+     └──(mTLS) ──→  ncm.<internal-host>          (*.eepp.shop, 외부 차단)
                   │
                   ▼
                nginx (443, Let's Encrypt)
@@ -62,13 +61,10 @@
 
 ```
   [회원가입]  이메일/이름/비번 → RSA-OAEP 암호화 → POST /api/auth/signup
-              → TOTP QR(클라 로컬 렌더) + 백업코드 10개
-              → POST /api/auth/signup/confirm → 자동 로그인
+              → 자동 로그인 (단일 단계)
 
-  [로그인]   외부: 이메일+비번+TOTP 필수
-             내부(mTLS): TOTP 스킵 (claim 없음)
-             외부에서 TOTP 미설정 시 claim `totp_setup_required=true`
-             → SSR 미들웨어가 /admin/settings/2fa 로 강제 리다이렉트
+  [로그인]   이메일+비번 → POST /api/auth/login
+             외부 노출은 nginx mTLS 차단으로 보장
 
   [세션]     JWT access(1h)+refresh(24h) httpOnly Secure Cookie
              Rotation + 재사용 감지 (단일 세션)
@@ -90,7 +86,7 @@
 | AI | Claude Code CLI (opus/sonnet) |
 | Storage | Google Photos API (OAuth) |
 | Messaging | 카카오톡 REST API |
-| Auth | argon2id · AES-GCM · HMAC-SHA256 · RSA-OAEP · PyJWT · pyotp (TOTP) · qrcode (클라 렌더) |
+| Auth | argon2id · AES-GCM · HMAC-SHA256 · RSA-OAEP · PyJWT |
 | Secrets | sops + age |
 | Infra | macOS launchd, brew services |
 
@@ -152,11 +148,9 @@ python -m src.batch
 | `MYSQL_PASSWORD` | MySQL 접속 비밀번호 |
 | `CONFIG_PATH` / `LOG_LEVEL` | 앱 설정 |
 | `AUTH_RSA_PRIVATE_KEY` / `AUTH_RSA_PUBLIC_KEY` | RSA-2048 keypair (E2E 필드 암호화) |
-| `AUTH_AES_KEY` | AES-256 (이메일/이름/TOTP secret 암호화) |
+| `AUTH_AES_KEY` | AES-256 (이메일/이름 암호화) |
 | `AUTH_HMAC_KEY` | 이메일 룩업 HMAC 인덱스 |
 | `AUTH_JWT_SECRET` | JWT 서명 |
-| `AUTH_INTERNAL_HOST_SUFFIXES` (선택) | 내부 호스트 suffix 오버라이드 (기본 `.eepp.shop`) |
-| `AUTH_EXTERNAL_HOST_SUFFIXES` (선택) | 외부 호스트 suffix 오버라이드 (기본 `.eepp.store`) |
 
 시크릿 생성 · 주입:
 
@@ -303,7 +297,7 @@ naver-cafe-monitor/
 ├── api/                    # FastAPI 백엔드
 │   ├── src/main.py         # API 진입점 (uvicorn)
 │   ├── src/auth/           # 인증 (router, dependencies, cookies, csrf,
-│   │                       #  login_service, signup_service, token_service, settings_2fa)
+│   │                       #  login_service, signup_service, token_service)
 │   ├── requirements.txt
 │   └── tests/
 ├── batch/                  # 배치 크롤러
@@ -320,13 +314,13 @@ naver-cafe-monitor/
 │   ├── config/             # config.example.yaml
 │   └── tests/
 ├── web/                    # Astro 프론트엔드 (SSR)
-│   ├── src/pages/          # admin/* (대시보드·처리이력·상세·2FA) / login / signup / error/*
+│   ├── src/pages/          # admin/* (대시보드·처리이력·상세) / login / signup / error/*
 │   ├── src/components/     # admin/(AppShell·Sidebar·Topbar·Modal) + primitives/(Button·Input·Select·Pill·Icon·DataTable·PageHeader·Pagination·HelpTip)
 │   ├── src/islands/        # modal·helptip·resend-cooldown (바닐라 TS)
 │   ├── src/styles/         # tokens.css (oklch 디자인 토큰) + globals.css
 │   ├── tests/e2e/          # Playwright + axe 접근성
-│   ├── src/middleware.ts   # 인증 가드 + 반쪽 세션 리다이렉트
-│   ├── src/lib/            # auth-client, qr, public-paths
+│   ├── src/middleware.ts   # 인증 가드 (액세스 쿠키 검증)
+│   ├── src/lib/            # auth-client, public-paths
 │   ├── astro.config.mjs
 │   └── package.json
 ├── shared/                 # API·배치 공통 모듈
@@ -338,7 +332,6 @@ naver-cafe-monitor/
 │   ├── auth_tokens.py      # JWT 발급·검증
 │   ├── auth_events.py      # 인증 이벤트 로그
 │   ├── rate_limit.py       # IP + 계정 rate limit
-│   ├── host_classifier.py  # internal/external 분류
 │   └── kakao_format.py     # 카카오톡 메시지 재구성 (API·batch 공용)
 ├── scripts/auth/           # generate_secrets.py, seed_admin.py
 ├── deploy/                 # 배포 설정 참고용

@@ -1,8 +1,11 @@
 """Auth 라우터.
 
-- GET  /api/auth/public-key   (TA-08): RSA 공개키 배포 (E2E 필드 암호화용)
-- GET  /api/auth/me           (TA-12): 현재 사용자
-- POST /api/auth/logout       (TA-12): 쿠키 제거 + refresh DB 삭제
+- GET  /api/auth/public-key   : RSA 공개키 배포 (E2E 필드 암호화용)
+- GET  /api/auth/me           : 현재 사용자
+- POST /api/auth/login        : 로그인 (이메일·비번)
+- POST /api/auth/signup       : 회원가입 + 자동 로그인 (단일 단계)
+- POST /api/auth/refresh      : refresh 토큰 회전
+- POST /api/auth/logout       : 쿠키 제거 + refresh DB 삭제
 """
 from __future__ import annotations
 
@@ -29,11 +32,7 @@ from api.src.auth.dependencies import (
     get_user_repository,
 )
 from api.src.auth.login_service import LoginContext, LoginError, login as do_login
-from api.src.auth.signup_service import (
-    SignupError,
-    confirm_signup,
-    signup as do_signup,
-)
+from api.src.auth.signup_service import SignupError, signup as do_signup
 from api.src.auth.token_service import (
     RefreshInvalid,
     RefreshReuseDetected,
@@ -41,7 +40,6 @@ from api.src.auth.token_service import (
 )
 from pydantic import BaseModel, Field
 from shared.auth_events import log_auth_event
-from shared.host_classifier import is_internal
 from shared.refresh_token_repository import RefreshTokenRepository
 from shared.user_repository import UserRepository, UserRow
 
@@ -74,15 +72,12 @@ async def me(auth: CurrentAuth = Depends(current_auth)) -> dict:
         "email": email,
         "name": name,
         "is_admin": auth.user.is_admin,
-        "totp_enabled": auth.user.totp_enabled,
-        "totp_setup_required": auth.token.totp_setup_required,
     }
 
 
 def _get_refresh_repository(
     user_repo: UserRepository = Depends(get_user_repository),
 ) -> RefreshTokenRepository:
-    # user_repo 와 동일 connection 재사용
     return RefreshTokenRepository(user_repo.conn)
 
 
@@ -92,41 +87,9 @@ class SignupBody(BaseModel):
     password_enc: str
 
 
-class ConfirmSignupBody(BaseModel):
-    pending_token: str
-    totp_code: str = Field(..., min_length=6, max_length=10)
-
-
 @router.post("/signup")
 async def signup_endpoint(
     body: SignupBody,
-    request: Request,
-    user_repo: UserRepository = Depends(get_user_repository),
-) -> dict:
-    ip = request.client.host if request.client else None
-    ua = request.headers.get("user-agent")
-    try:
-        result = do_signup(
-            email_enc_b64=body.email_enc,
-            name_enc_b64=body.name_enc,
-            password_enc_b64=body.password_enc,
-            user_repo=user_repo,
-            ip=ip,
-            user_agent=ua,
-        )
-    except SignupError as e:
-        return JSONResponse(status_code=e.status_code, content={"detail": e.code})
-    return {
-        "user_id": result.user_id,
-        "pending_token": result.pending_token,
-        "otpauth_url": result.otpauth_url,
-        "backup_codes": result.backup_codes,
-    }
-
-
-@router.post("/signup/confirm")
-async def signup_confirm_endpoint(
-    body: ConfirmSignupBody,
     request: Request,
     response: Response,
     user_repo: UserRepository = Depends(get_user_repository),
@@ -140,9 +103,10 @@ async def signup_confirm_endpoint(
     ip = request.client.host if request.client else None
     ua = request.headers.get("user-agent")
     try:
-        result = confirm_signup(
-            pending_token=body.pending_token,
-            totp_code=body.totp_code,
+        result = do_signup(
+            email_enc_b64=body.email_enc,
+            name_enc_b64=body.name_enc,
+            password_enc_b64=body.password_enc,
             user_repo=user_repo,
             refresh_repo=refresh_repo,
             ip=ip,
@@ -160,7 +124,6 @@ async def signup_confirm_endpoint(
 class LoginBody(BaseModel):
     email_enc: str = Field(..., description="RSA-OAEP(email) → base64")
     password_enc: str = Field(..., description="RSA-OAEP(password) → base64")
-    totp_code: str | None = Field(default=None, max_length=10)
 
 
 @router.post("/login")
@@ -169,7 +132,7 @@ async def login_endpoint(
     request: Request,
     response: Response,
     user_repo: UserRepository = Depends(get_user_repository),
-    refresh_repo: "RefreshTokenRepository" = Depends(lambda: None),  # override below
+    refresh_repo: "RefreshTokenRepository" = Depends(lambda: None),
 ) -> dict:
     from shared.refresh_token_repository import RefreshTokenRepository
 
@@ -178,15 +141,13 @@ async def login_endpoint(
 
     ip = request.client.host if request.client else None
     ua = request.headers.get("user-agent")
-    internal = is_internal(request.url.hostname)
     try:
         pair = do_login(
             email_enc_b64=body.email_enc,
             password_enc_b64=body.password_enc,
-            totp_code=body.totp_code,
             user_repo=user_repo,
             refresh_repo=refresh_repo,
-            ctx=LoginContext(ip=ip, user_agent=ua, internal=internal),
+            ctx=LoginContext(ip=ip, user_agent=ua),
         )
     except LoginError as e:
         return JSONResponse(status_code=e.status_code, content={"detail": e.code})

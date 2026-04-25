@@ -1,6 +1,6 @@
 """Access+Refresh 쌍 발급·회전·재사용 감지 로직 (TA-11).
 
-단일 세션 정책 (PRD Q14=2):
+단일 세션 정책:
 - 사용자당 refresh 1개 유지
 - 회전 시 이전 token_hash 를 rotated_from 에 기록
 - DB 의 current token_hash 와 다른 refresh 가 제시되면 = 재사용 감지
@@ -52,17 +52,11 @@ def issue_pair(
     *,
     repo: RefreshTokenRepository,
     previous_hash: str | None = None,
-    totp_setup_required: bool = False,
 ) -> IssuedPair:
-    """access + refresh + csrf 발급. refresh 는 DB 에 upsert.
-
-    totp_setup_required=True 면 access/refresh 토큰에 claim 포함 →
-    프런트·백엔드가 반쪽 세션으로 인식.
-    """
+    """access + refresh + csrf 발급. refresh 는 DB 에 upsert."""
     secret = _jwt_secret()
-    extra = {"totp_setup_required": True} if totp_setup_required else None
-    access, _ = issue_access_token(user_id, secret, extra)
-    refresh, rpayload = issue_refresh_token(user_id, secret, extra)
+    access, _ = issue_access_token(user_id, secret)
+    refresh, rpayload = issue_refresh_token(user_id, secret)
     repo.upsert(
         user_id=user_id,
         token_hash=hash_token(refresh),
@@ -98,7 +92,6 @@ def rotate_refresh(
         raise RefreshInvalid("no active session")
 
     if not secrets.compare_digest(stored.token_hash, presented_hash):
-        # 재사용 감지 — 전체 세션 무효화
         repo.delete_by_user(payload.user_id)
         log_auth_event(
             "refresh_reuse_detected",
@@ -112,7 +105,6 @@ def rotate_refresh(
         payload.user_id,
         repo=repo,
         previous_hash=presented_hash,
-        totp_setup_required=payload.totp_setup_required,
     )
     log_auth_event(
         "refresh_rotated", user_id=payload.user_id, ip=ip, user_agent=user_agent

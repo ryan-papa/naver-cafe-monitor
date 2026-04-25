@@ -1,10 +1,12 @@
 """auth_events 기록 유틸 (TA-07).
 
-PRD 기능: signup/login/TOTP/refresh rotation/재사용 감지/logout/locked 이벤트를
+PRD 기능: signup/login/refresh rotation/재사용 감지/logout/locked 이벤트를
 `auth_events` 테이블에 기록한다.
 
 민감 정보(비밀번호·토큰 값·이메일 원문)는 절대 기록하지 않는다.
 저장 대상: user_id, event_type, ip, user_agent(앞 255자).
+
+DB enum 에는 과거 totp_ok/totp_fail 값이 남아있으나 신규 발행은 중단됨 (감사 로그 보존 목적).
 """
 from __future__ import annotations
 
@@ -14,8 +16,6 @@ AuthEventType = Literal[
     "signup",
     "login_ok",
     "login_fail",
-    "totp_ok",
-    "totp_fail",
     "refresh_rotated",
     "refresh_reuse_detected",
     "logout",
@@ -48,7 +48,7 @@ def log_auth_event(
     """auth_events 테이블에 1행 insert 후 커밋.
 
     Args:
-        event_type: PRD 정의 9종 (DB enum 으로 강제).
+        event_type: PRD 정의 7종 (DB enum 에는 legacy totp_* 도 존재하나 신규 발행 중단).
         user_id: 가입 실패/IP 잠금 등 미식별 케이스는 None.
         ip: IPv4/IPv6, 최대 45자.
         user_agent: 앞 255자로 자름.

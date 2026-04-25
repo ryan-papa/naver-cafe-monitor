@@ -90,8 +90,9 @@ def test_log_auth_event_allows_null_user(fake_conn):
     assert params == (None, "login_fail", "1.2.3.4", None)
 
 
-def test_event_type_literals_cover_all_db_enum_values():
-    # PRD/스키마와 싱크 유지
+def test_event_type_literals_subset_of_db_enum_values():
+    # 2FA 제거 후 Python Literal 은 DB enum 의 부분집합이어야 한다.
+    # DB enum 에는 legacy totp_ok/totp_fail 가 남아있어도 신규 발행은 차단.
     import re
     from pathlib import Path
 
@@ -105,4 +106,6 @@ def test_event_type_literals_cover_all_db_enum_values():
     from typing import get_args
 
     py_values = set(get_args(auth_events.AuthEventType))
-    assert db_values == py_values, f"mismatch db={db_values} py={py_values}"
+    assert py_values <= db_values, f"py 값이 db enum 에 모두 포함되어야 함. py-db={py_values - db_values}"
+    # totp_* 값은 신규 발행 금지 (legacy 보존만)
+    assert not py_values & {"totp_ok", "totp_fail"}, "totp_* 이벤트 신규 발행은 금지"

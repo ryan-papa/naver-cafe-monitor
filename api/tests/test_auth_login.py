@@ -1,4 +1,4 @@
-"""Unit tests for login_service + /api/auth/login (TA-10)."""
+"""Unit tests for login_service + /api/auth/login."""
 from __future__ import annotations
 
 import base64
@@ -7,7 +7,6 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
-import pyotp
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -63,7 +62,7 @@ def _encrypt(pub: str, value: str) -> str:
     return base64.b64encode(rsa_oaep_encrypt(pub, value.encode())).decode()
 
 
-def _user(pw: str = "pw!1234567", *, totp_secret: str | None = None, locked=None, failed=0) -> UserRow:
+def _user(pw: str = "pw!1234567", *, locked=None, failed=0) -> UserRow:
     email = "admin@example.com"
     return UserRow(
         id=7,
@@ -71,9 +70,6 @@ def _user(pw: str = "pw!1234567", *, totp_secret: str | None = None, locked=None
         email_hmac=hmac_sha256(email.encode(), HMAC_KEY),
         name_enc=aes_gcm_encrypt(b"Admin", AES_KEY),
         password_hash=argon2_hash(pw),
-        totp_secret_enc=aes_gcm_encrypt(totp_secret.encode(), AES_KEY) if totp_secret else None,
-        totp_enabled=bool(totp_secret),
-        backup_codes_hash=None,
         is_admin=True,
         failed_login_count=failed,
         locked_until=locked,
@@ -85,7 +81,6 @@ def _repos(user: UserRow | None):
     ur.find_by_email_hmac.return_value = user
     rr = MagicMock()
 
-    # rate limit 테이블 mock connection_factory
     rl_conn = MagicMock()
     rl_cur = MagicMock()
     rl_cur.__enter__ = MagicMock(return_value=rl_cur)
@@ -107,7 +102,6 @@ def test_login_user_not_found_returns_401(rsa_pems):
         ls.login(
             email_enc_b64=_encrypt(pub, "nouser@example.com"),
             password_enc_b64=_encrypt(pub, "whatever"),
-            totp_code=None,
             user_repo=ur,
             refresh_repo=rr,
             rate_limit_factory=rl,
@@ -124,7 +118,6 @@ def test_login_wrong_password_returns_401_and_increments(rsa_pems):
         ls.login(
             email_enc_b64=_encrypt(pub, "admin@example.com"),
             password_enc_b64=_encrypt(pub, "wrong"),
-            totp_code=None,
             user_repo=ur,
             refresh_repo=rr,
             rate_limit_factory=rl,
@@ -142,7 +135,6 @@ def test_login_locked_account_returns_429(rsa_pems):
         ls.login(
             email_enc_b64=_encrypt(pub, "admin@example.com"),
             password_enc_b64=_encrypt(pub, "correct123"),
-            totp_code=None,
             user_repo=ur,
             refresh_repo=rr,
             rate_limit_factory=rl,
@@ -151,14 +143,13 @@ def test_login_locked_account_returns_429(rsa_pems):
     assert e.value.code == "account_locked"
 
 
-def test_login_success_without_totp(rsa_pems):
+def test_login_success(rsa_pems):
     _, pub = rsa_pems
     user = _user(pw="correct123")
     ur, rr, rl = _repos(user=user)
     pair = ls.login(
         email_enc_b64=_encrypt(pub, "admin@example.com"),
         password_enc_b64=_encrypt(pub, "correct123"),
-        totp_code=None,
         user_repo=ur,
         refresh_repo=rr,
         rate_limit_factory=rl,
@@ -166,54 +157,3 @@ def test_login_success_without_totp(rsa_pems):
     assert pair.access_token and pair.refresh_token and pair.csrf_token
     ur.reset_failed_login.assert_called_once_with(7)
     rr.upsert.assert_called_once()
-
-
-def test_login_with_totp_required_but_missing(rsa_pems):
-    _, pub = rsa_pems
-    secret = pyotp.random_base32()
-    user = _user(pw="correct123", totp_secret=secret)
-    ur, rr, rl = _repos(user=user)
-    with pytest.raises(ls.LoginError) as e:
-        ls.login(
-            email_enc_b64=_encrypt(pub, "admin@example.com"),
-            password_enc_b64=_encrypt(pub, "correct123"),
-            totp_code=None,
-            user_repo=ur,
-            refresh_repo=rr,
-            rate_limit_factory=rl,
-        )
-    assert e.value.code == "totp_required"
-
-
-def test_login_with_wrong_totp(rsa_pems):
-    _, pub = rsa_pems
-    secret = pyotp.random_base32()
-    user = _user(pw="correct123", totp_secret=secret)
-    ur, rr, rl = _repos(user=user)
-    with pytest.raises(ls.LoginError) as e:
-        ls.login(
-            email_enc_b64=_encrypt(pub, "admin@example.com"),
-            password_enc_b64=_encrypt(pub, "correct123"),
-            totp_code="000000",
-            user_repo=ur,
-            refresh_repo=rr,
-            rate_limit_factory=rl,
-        )
-    assert e.value.code == "totp_invalid"
-
-
-def test_login_with_correct_totp_succeeds(rsa_pems):
-    _, pub = rsa_pems
-    secret = pyotp.random_base32()
-    user = _user(pw="correct123", totp_secret=secret)
-    ur, rr, rl = _repos(user=user)
-    code = pyotp.TOTP(secret).now()
-    pair = ls.login(
-        email_enc_b64=_encrypt(pub, "admin@example.com"),
-        password_enc_b64=_encrypt(pub, "correct123"),
-        totp_code=code,
-        user_repo=ur,
-        refresh_repo=rr,
-        rate_limit_factory=rl,
-    )
-    assert pair.access_token and pair.refresh_token

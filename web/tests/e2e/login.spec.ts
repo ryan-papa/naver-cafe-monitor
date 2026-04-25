@@ -14,8 +14,9 @@ test.describe('/login page', () => {
 		await expect(page.locator('#password')).toBeVisible();
 		await expect(page.locator('#submit')).toBeVisible();
 
-		// TOTP 스텝은 최초에는 숨김 상태 (HTML `hidden` 속성)
-		await expect(page.locator('#totp-step')).toHaveAttribute('hidden', /.*/);
+		// 2FA 입력 필드는 더 이상 존재하지 않는다.
+		await expect(page.locator('#totp')).toHaveCount(0);
+		await expect(page.locator('#totp-step')).toHaveCount(0);
 	});
 
 	test('empty submit triggers native validation (email is required)', async ({ page }) => {

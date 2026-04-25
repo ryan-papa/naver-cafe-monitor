@@ -1,7 +1,6 @@
 ---
 /**
- * /signup — 3단계 회원가입(계정 → QR → 확인).
- * museum-finder 토큰 기반 카드 리디자인. 폼 로직·API·에러처리 유지.
+ * /signup — 단일 단계 회원가입 (계정 생성 즉시 자동 로그인).
  */
 import BaseHead from "../components/BaseHead.astro";
 import Button from "../components/primitives/Button.astro";
@@ -25,29 +24,12 @@ import "../styles/globals.css";
           </div>
         </header>
 
-        <ol class="stepper" aria-label="가입 진행 단계">
-          <li class="stepper__item is-active" data-step="1">
-            <span class="stepper__num">1</span>
-            <span class="stepper__label">계정</span>
-          </li>
-          <li class="stepper__line" aria-hidden="true"></li>
-          <li class="stepper__item" data-step="2">
-            <span class="stepper__num">2</span>
-            <span class="stepper__label">QR</span>
-          </li>
-          <li class="stepper__line" aria-hidden="true"></li>
-          <li class="stepper__item" data-step="3">
-            <span class="stepper__num">3</span>
-            <span class="stepper__label">확인</span>
-          </li>
-        </ol>
+        <h1 id="signup-title" class="auth__title">계정 만들기</h1>
+        <p class="auth__sub">이메일·이름·비밀번호를 입력하세요.</p>
 
         <div id="err" class="alert alert--danger" role="alert" hidden></div>
 
-        <!-- Step 1 -->
-        <section id="step-1" class="step-box is-active">
-          <h1 id="signup-title" class="auth__title">계정 만들기</h1>
-          <p class="auth__sub">이메일·이름·비밀번호를 입력하세요.</p>
+        <form id="signup-form" novalidate>
           <div class="auth__fields">
             <div class="auth__field">
               <label for="email">이메일</label>
@@ -64,53 +46,13 @@ import "../styles/globals.css";
             </div>
           </div>
           <div class="auth__submit">
-            <Button id="next1" type="button" variant="primary" size="lg">다음</Button>
+            <Button id="submit" type="submit" variant="primary" size="lg">가입 완료</Button>
           </div>
-          <p class="auth__foot">
-            이미 계정이 있나요? <a href="/login">로그인</a>
-          </p>
-        </section>
+        </form>
 
-        <!-- Step 2 -->
-        <section id="step-2" class="step-box">
-          <h1 class="auth__title">2단계 인증 설정</h1>
-          <p class="auth__sub">Google Authenticator 등으로 QR을 스캔하세요.</p>
-          <div class="card-inner auth__qr">
-            <img id="qr-img" alt="TOTP QR" />
-          </div>
-          <div class="card-inner auth__codes">
-            <div class="auth__codes-title">백업 코드 (안전한 곳에 보관)</div>
-            <ul id="codes"></ul>
-          </div>
-          <div class="auth__submit">
-            <Button id="next2" type="button" variant="primary" size="lg">
-              QR 스캔 완료, 다음
-            </Button>
-          </div>
-        </section>
-
-        <!-- Step 3 -->
-        <section id="step-3" class="step-box">
-          <h1 class="auth__title">인증 코드 확인</h1>
-          <p class="auth__sub">앱에 표시된 6자리 코드를 입력해 가입을 마무리하세요.</p>
-          <div class="auth__fields">
-            <div class="auth__field">
-              <label for="totp">인증 코드</label>
-              <Input
-                id="totp"
-                type="text"
-                inputmode="numeric"
-                maxlength={6}
-                autocomplete="one-time-code"
-              />
-            </div>
-          </div>
-          <div class="auth__submit">
-            <Button id="confirm" type="button" variant="primary" size="lg">
-              회원가입 완료
-            </Button>
-          </div>
-        </section>
+        <p class="auth__foot">
+          이미 계정이 있나요? <a href="/login">로그인</a>
+        </p>
       </section>
     </main>
 
@@ -161,54 +103,6 @@ import "../styles/globals.css";
       .auth__brand-title { font-size: var(--fs-13); font-weight: 600; color: var(--fg); }
       .auth__brand-sub { font-size: var(--fs-11); color: var(--fg-faint); }
 
-      .stepper {
-        list-style: none;
-        margin: 0 0 20px 0;
-        padding: 0;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-      }
-      .stepper__item {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        flex-shrink: 0;
-      }
-      .stepper__num {
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--bg-soft);
-        border: 1px solid var(--border);
-        color: var(--fg-muted);
-        font-size: var(--fs-11);
-        font-weight: 600;
-      }
-      .stepper__label {
-        font-size: var(--fs-12);
-        color: var(--fg-muted);
-        font-weight: 500;
-      }
-      .stepper__item.is-active .stepper__num {
-        background: var(--accent);
-        color: #fff;
-        border-color: var(--accent);
-      }
-      .stepper__item.is-active .stepper__label {
-        color: var(--fg);
-        font-weight: 600;
-      }
-      .stepper__line {
-        flex: 1;
-        height: 1px;
-        background: var(--border);
-        list-style: none;
-      }
-
       .auth__title {
         font-size: var(--fs-18);
         font-weight: 600;
@@ -248,44 +142,6 @@ import "../styles/globals.css";
       }
       .auth__foot a:hover { text-decoration: underline; }
 
-      .card-inner {
-        background: var(--bg-elev);
-        border: 1px solid var(--border);
-        border-radius: var(--r-6);
-        padding: 16px;
-        margin-top: 12px;
-      }
-      .auth__qr {
-        display: flex;
-        justify-content: center;
-        background: #fff;
-      }
-      .auth__qr img { width: 200px; height: 200px; display: block; }
-      .auth__codes {
-        background: var(--warning-soft);
-        border-color: var(--warning-border);
-      }
-      .auth__codes-title {
-        font-size: var(--fs-12);
-        font-weight: 600;
-        color: var(--warning);
-        margin-bottom: 8px;
-      }
-      .auth__codes ul {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        columns: 2;
-        column-gap: 8px;
-        font-family: var(--font-mono);
-        font-size: var(--fs-12);
-        color: var(--fg);
-      }
-      .auth__codes li { padding: 2px 0; }
-
-      .step-box { display: none; }
-      .step-box.is-active { display: block; }
-
       .alert {
         padding: 10px 12px;
         border-radius: var(--r-6);
@@ -300,26 +156,16 @@ import "../styles/globals.css";
       }
       @media (max-width: 480px) {
         .auth__card { padding: 24px; box-shadow: none; }
-        .stepper__label { display: none; }
       }
     </style>
 
     <script>
       import { fetchPublicKey, encryptField } from '../lib/auth-client';
-      import { otpauthToDataUrl } from '../lib/qr';
 
+      const form = document.getElementById('signup-form') as HTMLFormElement;
       const errBox = document.getElementById('err') as HTMLDivElement;
-      const boxes = [1, 2, 3].map((i) => document.getElementById('step-' + i) as HTMLElement);
-      const stepItems = document.querySelectorAll<HTMLElement>('.stepper__item');
+      const submitBtn = document.getElementById('submit') as HTMLButtonElement;
 
-      function go(n: number) {
-        boxes.forEach((b, i) => b.classList.toggle('is-active', i === n - 1));
-        stepItems.forEach((el) => {
-          const s = Number(el.dataset.step || '0');
-          el.classList.toggle('is-active', s <= n);
-        });
-        clearErr();
-      }
       function showErr(msg: string) {
         errBox.textContent = msg;
         errBox.hidden = false;
@@ -337,26 +183,26 @@ import "../styles/globals.css";
         password_needs_letter: '비밀번호에 영문을 포함하세요.',
         password_needs_digit: '비밀번호에 숫자를 포함하세요.',
         password_needs_symbol: '비밀번호에 특수문자를 포함하세요.',
-        pending_invalid: '가입 세션이 만료됐습니다. 처음부터 다시 시도하세요.',
-        totp_invalid: '인증 코드가 올바르지 않습니다.',
-        already_confirmed: '이미 인증이 완료된 계정입니다.',
       };
 
-      let pendingToken = '';
       let cachedKey: CryptoKey | null = null;
       async function getKey() {
         if (!cachedKey) cachedKey = await fetchPublicKey();
         return cachedKey;
       }
 
-      (document.getElementById('next1') as HTMLButtonElement).addEventListener('click', async (e) => {
+      form.addEventListener('submit', async (e) => {
         e.preventDefault();
         clearErr();
+        submitBtn.disabled = true;
+        submitBtn.textContent = '처리 중…';
         const email = (document.getElementById('email') as HTMLInputElement).value.trim();
         const name = (document.getElementById('name') as HTMLInputElement).value.trim();
         const pw = (document.getElementById('pw') as HTMLInputElement).value;
         if (!email || !name || !pw) {
           showErr('모든 필드를 입력하세요.');
+          submitBtn.disabled = false;
+          submitBtn.textContent = '가입 완료';
           return;
         }
         try {
@@ -376,46 +222,14 @@ import "../styles/globals.css";
             showErr(ERR[d.detail] || '가입 실패 (' + d.detail + ')');
             return;
           }
-          const data = await r.json();
-          pendingToken = data.pending_token;
-          const qrImg = document.getElementById('qr-img') as HTMLImageElement;
-          qrImg.src = await otpauthToDataUrl(data.otpauth_url);
-          const ul = document.getElementById('codes') as HTMLUListElement;
-          ul.innerHTML = '';
-          for (const c of data.backup_codes) {
-            const li = document.createElement('li');
-            li.textContent = c;
-            ul.appendChild(li);
-          }
-          go(2);
+          window.location.assign('/admin');
         } catch (err) {
           console.error(err);
-          showErr('네트워크 오류');
+          showErr('네트워크 오류가 발생했습니다.');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = '가입 완료';
         }
-      });
-
-      (document.getElementById('next2') as HTMLButtonElement).addEventListener('click', () => go(3));
-
-      (document.getElementById('confirm') as HTMLButtonElement).addEventListener('click', async (e) => {
-        e.preventDefault();
-        clearErr();
-        const code = (document.getElementById('totp') as HTMLInputElement).value.trim();
-        if (code.length < 6) {
-          showErr('6자리 코드를 입력하세요.');
-          return;
-        }
-        const r = await fetch('/api/auth/signup/confirm', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ pending_token: pendingToken, totp_code: code }),
-        });
-        if (!r.ok) {
-          const d = await r.json().catch(() => ({}));
-          showErr(ERR[d.detail] || '실패 (' + d.detail + ')');
-          return;
-        }
-        window.location.assign('/admin');
       });
     </script>
   </body>

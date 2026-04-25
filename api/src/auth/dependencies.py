@@ -10,7 +10,7 @@ import os
 
 from dataclasses import dataclass
 
-from fastapi import Cookie, Depends, HTTPException, Request, status
+from fastapi import Cookie, Depends, HTTPException, status
 from pymysql.connections import Connection
 
 from shared.auth_tokens import ACCESS_TYPE, TokenError, TokenPayload, verify_token
@@ -25,20 +25,6 @@ class CurrentAuth:
     token: TokenPayload
 
 
-# setup_required 세션에서 허용되는 경로 prefix (정확 매칭 포함)
-_SETUP_ALLOWED_PREFIXES = (
-    "/api/auth/me",
-    "/api/auth/logout",
-    "/api/auth/refresh",
-    "/api/auth/public-key",
-    "/api/settings/2fa",
-)
-
-
-def _is_setup_allowed_path(path: str) -> bool:
-    return any(path == p or path.startswith(p + "/") or path.startswith(p + "?") for p in _SETUP_ALLOWED_PREFIXES)
-
-
 def _jwt_secret() -> str:
     secret = os.environ.get("AUTH_JWT_SECRET")
     if not secret:
@@ -46,12 +32,10 @@ def _jwt_secret() -> str:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="AUTH_JWT_SECRET not configured",
         )
-    # base64 로 저장했어도 JWT HS256 은 임의 바이트/문자열 수락
     return secret
 
 
 def _get_db_conn() -> Connection:
-    # 지연 import 로 test 환경 의존 최소화
     from shared.database import get_connection
 
     return get_connection()
@@ -63,7 +47,6 @@ def get_user_repository() -> UserRepository:
 
 
 async def current_auth(
-    request: Request,
     access_token: str | None = Cookie(default=None, alias=ACCESS_COOKIE),
     repo: UserRepository = Depends(get_user_repository),
 ) -> CurrentAuth:
@@ -82,13 +65,6 @@ async def current_auth(
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
-        )
-
-    # 반쪽 세션: /api/settings/2fa, /api/auth/* 외 경로 접근 차단
-    if payload.totp_setup_required and not _is_setup_allowed_path(request.url.path):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="totp_setup_required",
         )
 
     return CurrentAuth(user=user, token=payload)

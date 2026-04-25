@@ -1,10 +1,8 @@
-"""Unit tests for shared.user_repository (TA-12 support)."""
+"""Unit tests for shared.user_repository."""
 from __future__ import annotations
 
 from datetime import datetime
 from unittest.mock import MagicMock
-
-import pytest
 
 from shared.user_repository import UserRepository, UserRow
 
@@ -26,9 +24,6 @@ _ROW = {
     "email_hmac": b"h",
     "name_enc": b"n",
     "password_hash": "$argon2id$...",
-    "totp_secret_enc": None,
-    "totp_enabled": False,
-    "backup_codes_hash": None,
     "is_admin": True,
     "failed_login_count": 0,
     "locked_until": None,
@@ -62,7 +57,7 @@ def test_create_returns_lastrowid_and_commits():
 
 
 def test_increment_and_reset_failed_login():
-    repo, conn, cur = _make_repo()
+    repo, _, cur = _make_repo()
     repo.increment_failed_login(1)
     assert "failed_login_count + 1" in cur.execute.call_args.args[0]
     repo.reset_failed_login(1)
@@ -71,16 +66,8 @@ def test_increment_and_reset_failed_login():
 
 
 def test_set_lock_writes_locked_until():
-    repo, conn, cur = _make_repo()
+    repo, _, cur = _make_repo()
     t = datetime(2026, 4, 17, 21, 0, 0)
     repo.set_lock(1, t)
     assert "locked_until = %s" in cur.execute.call_args.args[0]
     assert cur.execute.call_args.args[1] == (t, 1)
-
-
-def test_set_and_disable_totp():
-    repo, conn, cur = _make_repo()
-    repo.set_totp(1, b"secret", '["h1","h2"]')
-    assert "totp_enabled = TRUE" in cur.execute.call_args.args[0]
-    repo.disable_totp(1)
-    assert "totp_enabled = FALSE" in cur.execute.call_args.args[0]

@@ -38,9 +38,6 @@ def _fake_user(user_id: int = 1) -> UserRow:
         email_hmac=b"\x00" * 32,
         name_enc=aes_gcm_encrypt(b"Admin", AES_KEY),
         password_hash="$argon2id$...",
-        totp_secret_enc=None,
-        totp_enabled=False,
-        backup_codes_hash=None,
         is_admin=True,
         failed_login_count=0,
         locked_until=None,
@@ -98,8 +95,6 @@ def test_me_returns_decrypted_fields():
         "email": "admin@example.com",
         "name": "Admin",
         "is_admin": True,
-        "totp_enabled": False,
-        "totp_setup_required": False,
     }
 
 
