@@ -1,4 +1,4 @@
-"""로그인 플로우 (TA-10).
+"""로그인 플로우.
 
 순서:
 1. IP rate limit
@@ -6,8 +6,7 @@
 3. locked_until > now → 429 (lock)
 4. 계정 rate limit
 5. password_enc RSA 복호화 → argon2 검증 실패 시 increment + (N 초과 시) lock
-6. totp_enabled 면 totp_code 검증
-7. 성공 → reset_failed_login + issue_pair + login_ok 이벤트
+6. 성공 → reset_failed_login + issue_pair + login_ok 이벤트
 """
 from __future__ import annotations
 
@@ -16,12 +15,9 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-import pyotp
-
 from shared.auth_events import log_auth_event
 from shared.auth_tokens import hash_token
 from shared.crypto import (
-    aes_gcm_decrypt,
     argon2_verify,
     hmac_sha256,
     rsa_oaep_decrypt,
@@ -53,11 +49,6 @@ class LoginError(Exception):
 class LoginContext:
     ip: str | None = None
     user_agent: str | None = None
-    internal: bool = False  # True = *.eepp.shop 등 내부 도메인, 2FA 면제
-
-
-def _aes_key() -> bytes:
-    return base64.b64decode(os.environ["AUTH_AES_KEY"])
 
 
 def _hmac_key() -> bytes:
@@ -75,11 +66,6 @@ def decrypt_client_field(b64_ciphertext: str) -> bytes:
     return rsa_oaep_decrypt(_rsa_private_pem(), base64.b64decode(b64_ciphertext))
 
 
-def verify_totp(secret_enc: bytes, code: str) -> bool:
-    secret = aes_gcm_decrypt(secret_enc, _aes_key()).decode()
-    return pyotp.TOTP(secret).verify(code, valid_window=1)
-
-
 def _check_rate(bucket: str, *, limit: int, window: timedelta, now: datetime, rl_factory):
     res = check_and_increment(
         bucket, limit=limit, window=window, now=now, connection_factory=rl_factory
@@ -91,7 +77,6 @@ def login(
     *,
     email_enc_b64: str,
     password_enc_b64: str,
-    totp_code: str | None,
     user_repo: UserRepository,
     refresh_repo: RefreshTokenRepository,
     ctx: LoginContext | None = None,
@@ -152,27 +137,8 @@ def login(
         )
         raise LoginError(401, "invalid_credentials")
 
-    # 내부 도메인: TOTP 전면 면제 (setup 도 요구 안 함)
-    setup_required = False
-    if ctx.internal:
-        pass  # bypass 2FA
-    elif user.totp_enabled:
-        if not totp_code or not user.totp_secret_enc:
-            raise LoginError(401, "totp_required")
-        if not verify_totp(user.totp_secret_enc, totp_code):
-            log_auth_event(
-                "totp_fail", user_id=user.id, ip=ctx.ip, user_agent=ctx.user_agent
-            )
-            raise LoginError(401, "totp_invalid")
-        log_auth_event(
-            "totp_ok", user_id=user.id, ip=ctx.ip, user_agent=ctx.user_agent
-        )
-    else:
-        # 외부 + totp 미설정 → 반쪽 세션 (claim 부여, /settings/2fa 로 강제 이동)
-        setup_required = True
-
     user_repo.reset_failed_login(user.id)
-    pair = issue_pair(user.id, repo=refresh_repo, totp_setup_required=setup_required)
+    pair = issue_pair(user.id, repo=refresh_repo)
     log_auth_event(
         "login_ok", user_id=user.id, ip=ctx.ip, user_agent=ctx.user_agent
     )
@@ -185,5 +151,4 @@ __all__ = [
     "decrypt_client_field",
     "hash_token",
     "login",
-    "verify_totp",
 ]

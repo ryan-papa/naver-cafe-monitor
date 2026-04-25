@@ -34,8 +34,7 @@ def _mock_repo(rows=None, total=0, single=None):
 def _fake_user() -> UserRow:
     return UserRow(
         id=1, email_enc=b"x", email_hmac=b"\x00" * 32, name_enc=b"x",
-        password_hash="$x", totp_secret_enc=None, totp_enabled=True,
-        backup_codes_hash=None, is_admin=True, failed_login_count=0, locked_until=None,
+        password_hash="$x", is_admin=True, failed_login_count=0, locked_until=None,
     )
 
 

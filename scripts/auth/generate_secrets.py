@@ -3,7 +3,7 @@
 
 생성 대상:
 - AUTH_RSA_PRIVATE_KEY / AUTH_RSA_PUBLIC_KEY : RSA-2048 keypair (E2E 필드 암호화)
-- AUTH_AES_KEY                                : AES-256 (이메일/이름/TOTP secret 암호화)
+- AUTH_AES_KEY                                : AES-256 (이메일/이름 암호화)
 - AUTH_HMAC_KEY                               : HMAC-SHA256 (이메일 룩업 인덱스)
 - AUTH_JWT_SECRET                             : JWT 서명
 

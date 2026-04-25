@@ -11,7 +11,6 @@ dependencies = [
     "cryptography>=42",
     "argon2-cffi>=23",
     "PyJWT>=2.8",
-    "pyotp>=2.9",
 ]
 
 [project.optional-dependencies]

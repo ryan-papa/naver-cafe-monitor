@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
 
 from pymysql.connections import Connection
 
@@ -19,9 +18,6 @@ class UserRow:
     email_hmac: bytes
     name_enc: bytes
     password_hash: str
-    totp_secret_enc: bytes | None
-    totp_enabled: bool
-    backup_codes_hash: Any
     is_admin: bool
     failed_login_count: int
     locked_until: datetime | None
@@ -34,9 +30,6 @@ class UserRow:
             email_hmac=row["email_hmac"],
             name_enc=row["name_enc"],
             password_hash=row["password_hash"],
-            totp_secret_enc=row.get("totp_secret_enc"),
-            totp_enabled=bool(row.get("totp_enabled")),
-            backup_codes_hash=row.get("backup_codes_hash"),
             is_admin=bool(row.get("is_admin")),
             failed_login_count=row.get("failed_login_count", 0),
             locked_until=row.get("locked_until"),
@@ -46,8 +39,7 @@ class UserRow:
 class UserRepository:
     _COLS = (
         "id, email_enc, email_hmac, name_enc, password_hash, "
-        "totp_secret_enc, totp_enabled, backup_codes_hash, is_admin, "
-        "failed_login_count, locked_until"
+        "is_admin, failed_login_count, locked_until"
     )
 
     def __init__(self, conn: Connection):
@@ -90,24 +82,6 @@ class UserRepository:
             cur.execute(
                 "UPDATE users SET locked_until = %s WHERE id = %s",
                 (locked_until, user_id),
-            )
-        self.conn.commit()
-
-    def set_totp(self, user_id: int, totp_secret_enc: bytes, backup_codes_hash_json: str) -> None:
-        with self.conn.cursor() as cur:
-            cur.execute(
-                "UPDATE users SET totp_secret_enc = %s, backup_codes_hash = %s, "
-                "totp_enabled = TRUE WHERE id = %s",
-                (totp_secret_enc, backup_codes_hash_json, user_id),
-            )
-        self.conn.commit()
-
-    def disable_totp(self, user_id: int) -> None:
-        with self.conn.cursor() as cur:
-            cur.execute(
-                "UPDATE users SET totp_secret_enc = NULL, backup_codes_hash = NULL, "
-                "totp_enabled = FALSE WHERE id = %s",
-                (user_id,),
             )
         self.conn.commit()
 
