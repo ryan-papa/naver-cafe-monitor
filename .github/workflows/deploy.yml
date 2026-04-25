@@ -6,18 +6,21 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: naver-cafe-monitor-production
+  group: museum-eepp-shared-host
   cancel-in-progress: false
 
 jobs:
   deploy-production:
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && contains(fromJson(vars.DEPLOY_TRIGGER_ACTORS || '[]'), github.actor))
     runs-on: [self-hosted, macOS, deploy]
     environment: production
     permissions:
       contents: read
     env:
       DEPLOY_REPO_DIR: ${{ vars.DEPLOY_REPO_DIR }}
+      INFRA_REPO_DIR: ${{ vars.INFRA_REPO_DIR }}
       DEPLOY_BRANCH: main
     steps:
       - uses: actions/checkout@v4
@@ -28,6 +31,10 @@ jobs:
             echo "Repository variable DEPLOY_REPO_DIR is required." >&2
             exit 1
           }
+          test -n "${INFRA_REPO_DIR}" || {
+            echo "Repository variable INFRA_REPO_DIR is required." >&2
+            exit 1
+          }
 
-      - name: Deploy on Mac Mini
-        run: bash scripts/deploy/mac_mini_deploy.sh
+      - name: Blue/green deploy on Mac Mini
+        run: bash scripts/deploy/docker_bluegreen_deploy.sh

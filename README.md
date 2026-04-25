@@ -86,7 +86,7 @@
 | Messaging | 카카오톡 REST API |
 | Auth | argon2id · AES-GCM · HMAC-SHA256 · RSA-OAEP · PyJWT |
 | Secrets | sops + age |
-| Infra | macOS launchd, brew services |
+| Infra | Docker Compose 블루-그린 (T-DOCKER-BG, deploy-infra 분리), MySQL/cron 호스트 잔존 |
 
 ---
 
@@ -208,18 +208,19 @@ bash batch/scripts/install_cron.sh --uninstall=all       # 전체 제거 (기본
 
 ---
 
-## 배포 (macOS 네이티브)
+## 배포 (Docker Compose 블루-그린)
 
-Mac Mini (`eepp.shop`)에서 Docker 없이 brew + launchd로 운영한다.
+T-DOCKER-BG 이후 Docker Compose 컨테이너 2 셋(blue·green) 구조. nginx 는 별도 `deploy-infra` 레포 소유.
 
 ### 서비스 구성
 
-| 서비스 | 실행 방식 | 포트 | 관리 |
-|--------|-----------|------|------|
-| MySQL 8.0 | `brew services` | 3306 | `brew services restart mysql@8.0` |
-| nginx | launchd | 80, 443 | `sudo nginx -s reload` |
-| API (uvicorn) | launchd | 8000 | `kill <pid>` + 재실행 (sops exec-env) |
-| Web (Astro SSR / Node) | `node web/dist/server/entry.mjs` | 4321 | `kill <pid>` + 재실행 |
+| 서비스 | 실행 방식 | 포트 (호환 모드) | 포트 (전환 모드) | 관리 |
+|--------|-----------|:-:|:-:|------|
+| MySQL 8.0 | `brew services` (호스트) | 3306 | 3306 | `brew services restart mysql@8.0` |
+| nginx | deploy-infra Docker | 80, 443 | 80, 443 | deploy-infra `docker compose` |
+| API (FastAPI uvicorn) | Docker (`ncm-api-{blue,green}`) | green :8000 | blue :18000 / green :18001 | `scripts/deploy/docker_bluegreen_deploy.sh` |
+| Web (Astro SSR Node) | Docker (`ncm-web-{blue,green}`) | green :4321 | blue :14321 / green :14322 | 동일 |
+| 배치 (cron 30분) | 호스트 cron (컨테이너화 미포함) | — | — | `crontab -e` |
 
 ### SSL/mTLS
 
@@ -238,50 +239,38 @@ http://*                                   → 301 → https
 
 `nginx.conf` 는 `deploy/nginx-conf/` 의 샘플 참고. 실제 호스트명은 관리자에게 별도 문의.
 
-### Web 빌드 & 배포
-
-```bash
-cd web && npm ci && npm run build
-# dist/client (정적 자산) + dist/server (SSR 엔트리) 생성
-# Astro Node 서버 재시작:
-pkill -f 'dist/server/entry.mjs' ; nohup node dist/server/entry.mjs > /tmp/astro.log 2>&1 &
-```
-
-### API 재기동 (sops env 주입)
-
-```bash
-pkill -f 'uvicorn api.src.main'
-nohup .venv/bin/python scripts/deploy/run_api.py > /tmp/uvicorn.log 2>&1 &
-```
-
-`run_api.py` 는 `.env.enc` 를 subprocess 로 복호화 → `os.environ` 주입 → `uvicorn` 을 `execvp` 로 실행.
-
 ### 자동 배포 (GitHub Actions + self-hosted runner)
 
-`main` 브랜치에 머지되면 GitHub Actions가 Mac Mini의 self-hosted runner에서 배포 스크립트를 실행한다.
+`main` 브랜치에 머지되면 GitHub Actions 가 Mac Mini self-hosted runner 에서 `scripts/deploy/docker_bluegreen_deploy.sh` 를 실행한다.
 
 표준 구조:
 
 - 워크플로: `.github/workflows/deploy.yml`
-- 서버 배포 스크립트: `scripts/deploy/mac_mini_deploy.sh`
-- API 실행 래퍼: `deploy/scripts/run-api.sh`
+- 배포 스크립트: `scripts/deploy/docker_bluegreen_deploy.sh`
+- 시크릿 wrapper: `scripts/deploy/compose_with_sops_env.py`
+- 컴포즈: `deploy/compose.bluegreen.yaml`
+- 운영 가이드: `docs/docker-bluegreen.md`
 
-필수 GitHub 설정:
+필수 Repository Variables:
 
-- Repository variable `DEPLOY_REPO_DIR`: 맥미니에서 이 저장소가 실제로 위치한 절대 경로
-- Self-hosted runner labels: `self-hosted`, `macOS`, `deploy`
-- Runner 설치 절차: `docs/deploy/github-runner.md`
+| 변수 | 용도 |
+|------|------|
+| `DEPLOY_REPO_DIR` | self-hosted runner 의 ncm 레포 클론 경로 |
+| `INFRA_REPO_DIR` | deploy-infra 레포 클론 경로 |
+| `MYSQL_SSL_CERT_DIR_HOST` | MySQL client SSL cert 호스트 디렉터리 |
+| `DEPLOY_TRIGGER_ACTORS` | workflow_dispatch 허용 actor JSON 배열 |
 
 배포 스크립트가 하는 일:
 
-1. 서버 작업 트리가 깨끗한지 확인
-2. 현재 API 프로세스가 실행 중인지 확인
-3. `git pull --ff-only origin main`
-4. `cd web && npm ci && npm run build`
-5. API 재기동
-6. Astro SSR 서버 재기동
+1. docker / sops / openssl / python3 / lsof / docker daemon 진입 가드
+2. 작업 트리 정리 + `git pull --ff-only origin main`
+3. 포트 :8000 · :4321 점유 가드 (uvicorn / Node entry 잔존 시 abort)
+4. inactive color 빌드 + up (`docker compose up -d --build`)
+5. api `/api/health` 헬스체크 + MySQL 연결 에러 grep
+6. web `/` 헬스체크
+7. `INFRA_SWITCH_ENABLED=1` 시 deploy-infra `switch-upstream.sh ncm <target>` 호출 + old color stop
 
-이 구조는 다른 프로젝트에도 그대로 복제 가능하며, 각 저장소는 `scripts/deploy/mac_mini_deploy.sh` 만 프로젝트 실행 방식에 맞게 바꾸면 된다.
+호환 모드(`INFRA_SWITCH_ENABLED=0`, 기본) 시 green 만 :8000/:4321 점유, 기존 nginx upstream 호환. 전환 모드(=1)는 deploy-infra nginx 가 :443 owner 확정 후 활성화.
 
 ### Auth DB 스키마 적용 (최초 1회)
 
