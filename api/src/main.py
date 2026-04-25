@@ -46,6 +46,12 @@ app.add_middleware(
 )
 
 
+@app.get("/api/health")
+def health():
+    """Lightweight container health endpoint."""
+    return {"status": "ok"}
+
+
 def get_repo() -> Generator[PostRepository, None, None]:
     """FastAPI dependency — 요청별 DB 연결 관리."""
     conn = get_connection()

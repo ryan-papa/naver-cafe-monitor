@@ -15,7 +15,7 @@ import pymysql
 from pymysql.connections import Connection
 from dotenv import load_dotenv
 
-_CERT_DIR = Path.home() / ".ssl" / "client-certs"
+_CERT_DIR = Path(os.environ.get("MYSQL_SSL_CERT_DIR", str(Path.home() / ".ssl" / "client-certs")))
 _DB_NAME = "naver_cafe_monitor"
 
 
@@ -33,11 +33,11 @@ def _build_ssl_context() -> ssl.SSLContext:
 
 
 def get_connection(
-    host: str = "eepp.shop",
-    port: int = 3306,
-    user: str = "rp_readwrite",
+    host: str | None = None,
+    port: int | None = None,
+    user: str | None = None,
     password: str | None = None,
-    database: str = _DB_NAME,
+    database: str | None = None,
 ) -> Connection:
     """MySQL 연결을 반환한다.
 
@@ -46,6 +46,10 @@ def get_connection(
     if password is None:
         load_dotenv()
         password = os.environ.get("MYSQL_PASSWORD", "")
+    host = host or os.environ.get("MYSQL_HOST", "eepp.shop")
+    port = port or int(os.environ.get("MYSQL_PORT", "3306"))
+    user = user or os.environ.get("MYSQL_USER", "rp_readwrite")
+    database = database or os.environ.get("MYSQL_DATABASE", _DB_NAME)
 
     return pymysql.connect(
         host=host,
@@ -64,11 +68,11 @@ def get_connection(
 
 @contextmanager
 def connect(
-    host: str = "eepp.shop",
-    port: int = 3306,
-    user: str = "rp_readwrite",
+    host: str | None = None,
+    port: int | None = None,
+    user: str | None = None,
     password: str | None = None,
-    database: str = _DB_NAME,
+    database: str | None = None,
 ) -> Generator[Connection, None, None]:
     """컨텍스트 매니저로 MySQL 연결을 관리한다.
 

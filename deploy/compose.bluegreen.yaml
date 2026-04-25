@@ -1,0 +1,102 @@
+name: naver-cafe-monitor
+
+x-api-env: &api-env
+  MYSQL_HOST: ${MYSQL_HOST:-eepp.shop}
+  MYSQL_PORT: ${MYSQL_PORT:-3306}
+  MYSQL_USER: ${MYSQL_USER:-rp_readwrite}
+  MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}
+  MYSQL_DATABASE: ${MYSQL_DATABASE:-naver_cafe_monitor}
+  MYSQL_SSL_CERT_DIR: /run/secrets/mysql-client
+  AUTH_RSA_PUBLIC_KEY: ${AUTH_RSA_PUBLIC_KEY:-}
+  AUTH_RSA_PRIVATE_KEY: ${AUTH_RSA_PRIVATE_KEY:-}
+  AUTH_AES_KEY: ${AUTH_AES_KEY:?AUTH_AES_KEY is required}
+  AUTH_HMAC_KEY: ${AUTH_HMAC_KEY:?AUTH_HMAC_KEY is required}
+  AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?AUTH_JWT_SECRET is required}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+  GOOGLE_ADMIN_ALLOWED_EMAILS: ${GOOGLE_ADMIN_ALLOWED_EMAILS:-}
+  GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI:-}
+  GOOGLE_OAUTH_SUCCESS_URL: ${GOOGLE_OAUTH_SUCCESS_URL:-}
+  KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-}
+  KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+x-api-base: &api-base
+  build:
+    context: ..
+    dockerfile: api/Dockerfile
+  restart: on-failure:3
+  environment: *api-env
+  user: "10001:10001"
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  mem_limit: 384m
+  mem_reservation: 384m
+  volumes:
+    - ${MYSQL_SSL_CERT_DIR_HOST:?MYSQL_SSL_CERT_DIR_HOST is required}:/run/secrets/mysql-client:ro
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  healthcheck:
+    test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8000/api/health | grep -q '\"status\":\"ok\"' || exit 1"]
+    interval: 10s
+    timeout: 5s
+    retries: 6
+    start_period: 30s
+
+x-web-base: &web-base
+  build:
+    context: ..
+    dockerfile: web/Dockerfile
+    args:
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-/api}
+  restart: on-failure:3
+  environment:
+    NODE_ENV: production
+  user: "10001:10001"
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  mem_limit: 384m
+  mem_reservation: 384m
+  healthcheck:
+    test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4321/ >/dev/null || exit 1"]
+    interval: 10s
+    timeout: 5s
+    retries: 6
+    start_period: 30s
+
+services:
+  ncm-api-blue:
+    <<: *api-base
+    ports:
+      - "127.0.0.1:${NCM_API_BLUE_PORT:-18000}:8000"
+
+  ncm-web-blue:
+    <<: *web-base
+    environment:
+      NODE_ENV: production
+      INTERNAL_API_BASE: http://ncm-api-blue:8000
+    ports:
+      - "127.0.0.1:${NCM_WEB_BLUE_PORT:-14321}:4321"
+    depends_on:
+      ncm-api-blue:
+        condition: service_healthy
+
+  ncm-api-green:
+    <<: *api-base
+    ports:
+      - "127.0.0.1:${NCM_API_GREEN_PORT:-18001}:8000"
+
+  ncm-web-green:
+    <<: *web-base
+    environment:
+      NODE_ENV: production
+      INTERNAL_API_BASE: http://ncm-api-green:8000
+    ports:
+      - "127.0.0.1:${NCM_WEB_GREEN_PORT:-14322}:4321"
+    depends_on:
+      ncm-api-green:
+        condition: service_healthy
