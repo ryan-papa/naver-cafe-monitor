@@ -85,6 +85,14 @@ class UserRepository:
             )
         self.conn.commit()
 
+    def set_admin(self, user_id: int, is_admin: bool) -> None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET is_admin = %s WHERE id = %s",
+                (is_admin, user_id),
+            )
+        self.conn.commit()
+
     def create(
         self,
         *,
@@ -92,12 +100,13 @@ class UserRepository:
         email_hmac: bytes,
         name_enc: bytes,
         password_hash: str,
+        is_admin: bool = False,
     ) -> int:
         with self.conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO users (email_enc, email_hmac, name_enc, password_hash) "
-                "VALUES (%s, %s, %s, %s)",
-                (email_enc, email_hmac, name_enc, password_hash),
+                "INSERT INTO users (email_enc, email_hmac, name_enc, password_hash, is_admin) "
+                "VALUES (%s, %s, %s, %s, %s)",
+                (email_enc, email_hmac, name_enc, password_hash, is_admin),
             )
             new_id = cur.lastrowid
         self.conn.commit()

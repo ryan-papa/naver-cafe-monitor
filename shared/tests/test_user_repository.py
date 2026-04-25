@@ -71,3 +71,10 @@ def test_set_lock_writes_locked_until():
     repo.set_lock(1, t)
     assert "locked_until = %s" in cur.execute.call_args.args[0]
     assert cur.execute.call_args.args[1] == (t, 1)
+
+
+def test_set_admin_updates_admin_flag():
+    repo, _, cur = _make_repo()
+    repo.set_admin(1, True)
+    assert "is_admin = %s" in cur.execute.call_args.args[0]
+    assert cur.execute.call_args.args[1] == (True, 1)

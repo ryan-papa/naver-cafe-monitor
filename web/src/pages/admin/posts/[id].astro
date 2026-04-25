@@ -48,17 +48,23 @@ async function fetchDetail(): Promise<PostDetail | null | "notfound"> {
   }
 }
 
-async function fetchMe(): Promise<{ email?: string } | null> {
+type MeResult = { user: { email?: string; is_admin?: boolean } | null; status: number | null };
+
+async function fetchMe(): Promise<MeResult> {
   try {
     const r = await fetch(`${API_BASE}/api/auth/me`, { headers: cookie ? { cookie } : {} });
-    if (!r.ok) return null;
-    return (await r.json()) as { email?: string };
+    if (!r.ok) return { user: null, status: r.status };
+    return { user: (await r.json()) as { email?: string; is_admin?: boolean }, status: r.status };
   } catch {
-    return null;
+    return { user: null, status: null };
   }
 }
 
 const [detail, me] = await Promise.all([fetchDetail(), fetchMe()]);
+
+if (me.status === 401 || me.status === 403 || me.user?.is_admin === false) {
+  return Astro.redirect(`/login?next=/admin/posts/${recordId}`, 302);
+}
 
 if (detail === "notfound") {
   return Astro.redirect("/admin/posts", 302);
@@ -99,7 +105,7 @@ const canResend = detail?.status === "SUCCESS" && kakaoMessages.length > 0;
 <AppShell
   title={`${title} · 게시물 상세`}
   description="게시물 상세 정보와 카카오톡 재발송"
-  email={me?.email}
+  email={me.user?.email}
   activeRoute="/admin/posts"
 >
   <PageHeader title="게시물 상세">

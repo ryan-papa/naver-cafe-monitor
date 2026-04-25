@@ -21,9 +21,9 @@
 | 컴포넌트 | 역할 |
 |----------|------|
 | **Batch** | 30분 주기 크롤링 → 얼굴 필터링 → AI 요약 → 카카오톡 알림 |
-| **API** | 처리 이력 조회 + 인증(회원가입/로그인) REST API (FastAPI/Uvicorn) |
-| **Web** | 처리 이력 대시보드 — 통계, 필터, 페이지네이션, 상세 모달(카카오 전송 내용 미리보기·재발송) + 로그인·회원가입 (Astro SSR) |
-| **Auth** | 이메일·이름 AES-GCM + HMAC, 비번 argon2id, JWT + Refresh Rotation, mTLS 외부 차단 |
+| **API** | 처리 이력 조회 + Google 관리자 로그인 REST API (FastAPI/Uvicorn) |
+| **Web** | 처리 이력 대시보드 — 통계, 필터, 페이지네이션, 상세 모달(카카오 전송 내용 미리보기·재발송) + Google 로그인 (Astro SSR) |
+| **Auth** | Google OAuth 관리자 로그인, 이메일·이름 AES-GCM + HMAC, JWT + Refresh Rotation, mTLS 외부 차단 |
 
 ### 배치 파이프라인
 
@@ -60,11 +60,9 @@
 ### 인증 플로우
 
 ```
-  [회원가입]  이메일/이름/비번 → RSA-OAEP 암호화 → POST /api/auth/signup
-              → 자동 로그인 (단일 단계)
-
-  [로그인]   이메일+비번 → POST /api/auth/login
-             외부 노출은 nginx mTLS 차단으로 보장
+  [관리자 로그인]  /login → /oauth2/authorization/google
+                  → Google OAuth → /login/oauth2/code/google
+                  → 허용 이메일 확인 → /admin/posts
 
   [세션]     JWT access(1h)+refresh(24h) httpOnly Secure Cookie
              Rotation + 재사용 감지 (단일 세션)
@@ -151,6 +149,9 @@ python -m src.batch
 | `AUTH_AES_KEY` | AES-256 (이메일/이름 암호화) |
 | `AUTH_HMAC_KEY` | 이메일 룩업 HMAC 인덱스 |
 | `AUTH_JWT_SECRET` | JWT 서명 |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth 관리자 로그인 |
+| `GOOGLE_ADMIN_ALLOWED_EMAILS` | 관리자 접근 허용 Google 이메일 목록 (콤마 구분) |
+| `GOOGLE_OAUTH_REDIRECT_URI` | 선택. proxy prefix가 있는 운영 callback URI 고정 |
 
 시크릿 생성 · 주입:
 

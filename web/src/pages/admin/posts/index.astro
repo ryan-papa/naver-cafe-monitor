@@ -54,13 +54,15 @@ async function fetchList(qs: string): Promise<ListResponse | null> {
   }
 }
 
-async function fetchMe(): Promise<{ email?: string } | null> {
+type MeResult = { user: { email?: string; is_admin?: boolean } | null; status: number | null };
+
+async function fetchMe(): Promise<MeResult> {
   try {
     const r = await fetch(`${API_BASE}/api/auth/me`, { headers: cookie ? { cookie } : {} });
-    if (!r.ok) return null;
-    return (await r.json()) as { email?: string };
+    if (!r.ok) return { user: null, status: r.status };
+    return { user: (await r.json()) as { email?: string; is_admin?: boolean }, status: r.status };
   } catch {
-    return null;
+    return { user: null, status: null };
   }
 }
 
@@ -75,6 +77,9 @@ if (status) params.set("status", status);
 
 const [data, me] = await Promise.all([fetchList(params.toString()), fetchMe()]);
 const hasError = data === null;
+if (me.status === 401 || me.status === 403 || me.user?.is_admin === false) {
+  return Astro.redirect("/login?next=/admin/posts", 302);
+}
 const items = data?.items ?? [];
 const total = data?.total ?? 0;
 
@@ -113,7 +118,7 @@ const SORT_OPTIONS = [
 <AppShell
   title="처리 이력 · 카페 모니터"
   description="수집된 게시글 처리 이력"
-  email={me?.email}
+  email={me.user?.email}
   activeRoute="/admin/posts"
 >
   <PageHeader title="처리 이력" subtitle={`전체 ${total.toLocaleString()}건`}>

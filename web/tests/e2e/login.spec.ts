@@ -2,7 +2,17 @@ import { test, expect } from '@playwright/test';
 import { runA11y } from './fixtures';
 
 test.describe('/login page', () => {
-	test('renders brand, title, fields, and submit button', async ({ page }) => {
+	test.beforeEach(async ({ page }) => {
+		await page.route(/\/api\/auth\/me$/, (route) =>
+			route.fulfill({
+				status: 500,
+				contentType: 'application/json',
+				body: JSON.stringify({ detail: 'server_error' }),
+			}),
+		);
+	});
+
+	test('renders brand, title, and Google login link', async ({ page }) => {
 		await page.goto('/login');
 
 		await expect(page.locator('.auth__logo')).toHaveText('NC');
@@ -10,24 +20,28 @@ test.describe('/login page', () => {
 		await expect(page.locator('.auth__brand-sub')).toContainText('Admin');
 		await expect(page.locator('#login-title')).toHaveText('로그인');
 
-		await expect(page.locator('#email')).toBeVisible();
-		await expect(page.locator('#password')).toBeVisible();
-		await expect(page.locator('#submit')).toBeVisible();
+		await expect(page.locator('#google-login')).toBeVisible();
+		await expect(page.locator('#google-login')).toHaveAttribute(
+			'href',
+			'/oauth2/authorization/google',
+		);
 
-		// 2FA 입력 필드는 더 이상 존재하지 않는다.
+		await expect(page.locator('#email')).toHaveCount(0);
+		await expect(page.locator('#password')).toHaveCount(0);
 		await expect(page.locator('#totp')).toHaveCount(0);
 		await expect(page.locator('#totp-step')).toHaveCount(0);
 	});
 
-	test('empty submit triggers native validation (email is required)', async ({ page }) => {
+	test('401 from me redirects to Google OAuth', async ({ page }) => {
+		await page.unroute(/\/api\/auth\/me$/);
+		await page.route(/\/api\/auth\/me$/, (route) => route.fulfill({ status: 401 }));
+		const oauth = { called: false };
+		await page.route(/\/oauth2\/authorization\/google$/, (route) => {
+			oauth.called = true;
+			route.fulfill({ status: 200, contentType: 'text/html', body: '<html>oauth</html>' });
+		});
 		await page.goto('/login');
-		await page.locator('#submit').click();
-
-		// HTML5 validation 이 걸리면 포커스가 첫 invalid 필드로 이동
-		const emailInvalid = await page.locator('#email').evaluate(
-			(el: HTMLInputElement) => !el.validity.valid,
-		);
-		expect(emailInvalid).toBe(true);
+		await expect.poll(() => oauth.called, { timeout: 10_000 }).toBe(true);
 	});
 
 	test('accessibility — /login is free of critical/serious violations', async ({ page }) => {
