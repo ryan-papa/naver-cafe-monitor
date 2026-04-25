@@ -21,6 +21,7 @@ jobs:
     env:
       DEPLOY_REPO_DIR: ${{ vars.DEPLOY_REPO_DIR }}
       INFRA_REPO_DIR: ${{ vars.INFRA_REPO_DIR }}
+      MYSQL_SSL_CERT_DIR_HOST: ${{ vars.MYSQL_SSL_CERT_DIR_HOST }}
       DEPLOY_BRANCH: main
     steps:
       - uses: actions/checkout@v4
