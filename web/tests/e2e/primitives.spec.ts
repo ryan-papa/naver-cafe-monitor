@@ -11,7 +11,16 @@ test.describe('primitives on /login', () => {
 	test('Button activates with keyboard Enter (Tab-focus → Enter submits form)', async ({
 		page,
 	}) => {
-		await page.goto('/login');
+		await page.goto('/login', { waitUntil: 'networkidle' });
+
+		// Astro 모듈 스크립트가 form submit 리스너를 부착할 때까지 대기
+		await page.waitForFunction(() => {
+			const f = document.getElementById('login-form') as HTMLFormElement | null;
+			return !!f && (f as HTMLFormElement & { __ready?: boolean }).__ready === true;
+		}, { timeout: 5_000 }).catch(() => {
+			// 마커가 없을 수도 있으므로 폴백: idle + small grace
+			return page.waitForTimeout(200);
+		});
 
 		await page.locator('#email').fill('invalid');
 		await page.locator('#password').fill('secret');

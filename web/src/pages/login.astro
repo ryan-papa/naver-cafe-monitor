@@ -184,6 +184,8 @@ import "../styles/globals.css";
         account_rate_limited: '로그인 시도가 너무 많습니다. 15분 뒤 다시 시도하세요.',
       };
 
+      (form as HTMLFormElement & { __ready?: boolean }).__ready = true;
+
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         clearErr();
